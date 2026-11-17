@@ -1,6 +1,6 @@
 # Verification
 
-Final run passed: **19 unit tests, 24 connected emulator tests, and lintDebug (0 errors, 33 warnings)**. The debug app and instrumentation APK built successfully. Automated checks used an Android 17 Pixel 10a emulator, including simulated GPS and camera scenes. Lint/build deprecation warnings do not prevent running the project.
+Final run passed: **19 unit tests, 25 connected emulator tests, and lintDebug (0 errors, 33 warnings)**. The debug app and instrumentation APK built successfully. Automated checks used an Android 17 Pixel 10a emulator, including simulated GPS and camera scenes. Lint/build deprecation warnings do not prevent running the project.
 
 ```sh
 ./gradlew testDebugUnitTest lintDebug
@@ -13,4 +13,6 @@ Coverage: account rules/password hashes, filters/matching, explicit database mig
 
 Additional trail checks cover filtering invalid/stale GPS fixes and jumps, segmented distance after pause, account-isolated Room persistence after reopening, migrations through database version 7, actual Fused GPS-to-Room saving, and trail controls/draggable report navigation. Captured report and trail screens use isolated test fixtures, not student data or proof of live Google map tiles.
 
-Manual classroom flow: [DEMO.md](../DEMO.md). Remaining checks: live Google OAuth, Firebase with two phones, restricted Google Maps key, physical camera/GPS, TalkBack and broader screen sizes.
+The supplied Maps key successfully loaded live Google tiles and the device location marker. A cold-start regression check waits for the native map-loaded callback and captures the rendered map. It skips when no Maps key is configured. Camera updates now wait for map readiness to avoid the CameraUpdateFactory initialization crash. The key remains in ignored local configuration.
+
+Manual classroom flow: [DEMO.md](../DEMO.md). Remaining checks: live Google OAuth, Firebase with two phones, physical camera/GPS, TalkBack and broader screen sizes.
