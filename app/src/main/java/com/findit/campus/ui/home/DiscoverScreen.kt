@@ -69,6 +69,8 @@ fun DiscoverScreen(
     onDelete: (Long) -> Unit,
     displayName: String = "",
     campusName: String = "",
+    viewerId: Long = 0,
+    onFound: (Long) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var filtersOpen by rememberSaveable { mutableStateOf(false) }
@@ -88,6 +90,8 @@ fun DiscoverScreen(
             onOpenItem = onOpenItem,
             displayName = displayName,
             campusName = campusName,
+            viewerId = viewerId,
+            onFound = onFound,
             modifier = Modifier.weight(1f),
         )
         if (expanded) {
@@ -136,6 +140,8 @@ private fun DiscoverList(
     onOpenItem: (Long) -> Unit,
     displayName: String,
     campusName: String,
+    viewerId: Long,
+    onFound: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val gutter = if (expanded) 24.dp else 16.dp
@@ -159,6 +165,7 @@ private fun DiscoverList(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                ExactLocationLine()
                 OutlinedTextField(
                     value = state.query,
                     onValueChange = onQuery,
@@ -180,6 +187,31 @@ private fun DiscoverList(
         item {
             PulseCard(state = state, modifier = Modifier.padding(horizontal = gutter))
         }
+        item {
+            SectionTitle("Lost items", Modifier.padding(horizontal = gutter))
+        }
+        if (state.lostBoard.isEmpty()) {
+            item {
+                Text(
+                    "Lost reports from people on this campus will show up here.",
+                    modifier = Modifier.padding(horizontal = gutter),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        items(state.lostBoard, key = { "lost-${it.id}" }) { item ->
+            ItemCard(
+                item = item,
+                matchCount = state.matchCounts[item.id] ?: 0,
+                onClick = { onOpenItem(item.id) },
+                onFound = if (item.ownerId != viewerId && viewerId > 0) {
+                    { onFound(item.id) }
+                } else {
+                    null
+                },
+                modifier = Modifier.padding(horizontal = gutter),
+            )
+        }
         if (state.reunions.isNotEmpty()) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -198,16 +230,17 @@ private fun DiscoverList(
         if (state.error != null) {
             item { Text(state.error, modifier = Modifier.padding(horizontal = gutter), color = MaterialTheme.colorScheme.error) }
         }
-        if (!state.loading && state.items.isEmpty()) {
+        val feedItems = state.items.filterNot { item -> state.lostBoard.any { it.id == item.id } }
+        if (!state.loading && feedItems.isEmpty() && state.lostBoard.isEmpty()) {
             item {
                 EmptyBoard(
                     title = if (state.query.isBlank()) "Nothing on the board" else "No reports match",
-                    body = "Try another word, or post what you lost or found.",
+                    body = "Post a lost item, or tap Found on someone else's report.",
                     modifier = Modifier.padding(horizontal = gutter),
                 )
             }
         }
-        items(state.items, key = { it.id }, contentType = { it.type }) { item ->
+        items(feedItems, key = { it.id }, contentType = { it.type }) { item ->
             ItemCard(
                 item = item,
                 matchCount = state.matchCounts[item.id] ?: 0,

@@ -7,9 +7,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.DocumentScanner
+import androidx.compose.material.icons.rounded.Chat
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Map
@@ -49,6 +52,8 @@ import com.findit.campus.ui.auth.LoginScreen
 import com.findit.campus.ui.auth.RegisterScreen
 import com.findit.campus.ui.auth.SessionViewModel
 import com.findit.campus.ui.auth.WelcomeScreen
+import com.findit.campus.ui.chat.ChatScreen
+import com.findit.campus.ui.chat.InboxScreen
 import com.findit.campus.ui.detail.DetailScreen
 import com.findit.campus.ui.detail.DetailViewModel
 import com.findit.campus.ui.home.DiscoverScreen
@@ -68,11 +73,14 @@ private object Routes {
     const val MAP = "map"
     const val SCAN = "scan"
     const val MINE = "mine"
+    const val INBOX = "inbox"
+    const val CHAT = "chat/{itemId}"
     const val POST = "post?prefill={prefill}"
     const val DETAIL = "detail/{itemId}"
 
     fun post(prefill: String = "") = "post?prefill=${Uri.encode(prefill.take(240))}"
     fun detail(id: Long) = "detail/$id"
+    fun chat(id: Long) = "chat/$id"
 }
 
 private data class Tab(
@@ -85,6 +93,7 @@ private data class Tab(
 private val tabs = listOf(
     Tab(Routes.DISCOVER, "Discover", Icons.Outlined.Explore, Icons.Rounded.Explore),
     Tab(Routes.MAP, "Map", Icons.Outlined.Map, Icons.Rounded.Map),
+    Tab(Routes.INBOX, "Chat", Icons.Outlined.Chat, Icons.Rounded.Chat),
     Tab(Routes.SCAN, "Scan", Icons.Outlined.DocumentScanner, Icons.Rounded.DocumentScanner),
     Tab(Routes.MINE, "Mine", Icons.Outlined.Inventory2, Icons.Rounded.Inventory2),
 )
@@ -102,7 +111,7 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
     val snackbar = remember { SnackbarHostState() }
     val backStack by navController.currentBackStackEntryAsState()
     val route = backStack?.destination?.route.orEmpty()
-    val showBar = route == Routes.DISCOVER || route == Routes.MAP || route == Routes.SCAN || route == Routes.MINE
+    val showBar = route == Routes.DISCOVER || route == Routes.MAP || route == Routes.SCAN || route == Routes.MINE || route == Routes.INBOX
     val expanded = widthClass == WindowWidthSizeClass.Expanded
     val homeViewModel: HomeViewModel = viewModel()
     LaunchedEffect(backStack) {
@@ -181,6 +190,8 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
                     onDelete = homeViewModel::delete,
                     displayName = signedIn.displayName,
                     campusName = signedIn.campusName,
+                    viewerId = signedIn.id,
+                    onFound = { id -> navController.navigate(Routes.chat(id)) },
                 )
             }
             composable(Routes.MAP) {
@@ -207,6 +218,15 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
                     onOpen = { navController.navigate(Routes.detail(it)) },
                     onUseText = { navController.navigate(Routes.post(it)) },
                 )
+            }
+            composable(Routes.INBOX) {
+                InboxScreen(onOpen = { navController.navigate(Routes.chat(it)) })
+            }
+            composable(
+                route = Routes.CHAT,
+                arguments = listOf(navArgument("itemId") { type = NavType.LongType }),
+            ) {
+                ChatScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.MINE) {
                 val model: MineViewModel = viewModel()
@@ -275,6 +295,8 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
                             navController.popBackStack()
                         }
                     },
+                    viewerId = signedIn.id,
+                    onReachOut = { navController.navigate(Routes.chat(state.item?.id ?: return@DetailScreen)) },
                 )
             }
         }
@@ -285,7 +307,8 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
 private fun AuthFlow(session: SessionViewModel) {
     val navController = rememberNavController()
     var error by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
-    NavHost(navController = navController, startDestination = "welcome") {
+    var created by remember { mutableStateOf(false) }
+    NavHost(navController = navController, startDestination = "welcome", modifier = Modifier.statusBarsPadding()) {
         composable("welcome") {
             WelcomeScreen(
                 onCreate = { navController.navigate("register") },
@@ -298,7 +321,17 @@ private fun AuthFlow(session: SessionViewModel) {
                 onLogin = { navController.navigate("login") },
                 error = error,
                 onSubmit = { name, email, password, confirm, campus ->
-                    session.register(name, email, password, confirm, campus) { error = it }
+                    session.register(name, email, password, confirm, campus) { message ->
+                        if (message == null) {
+                            error = null
+                            created = true
+                            navController.navigate("login") {
+                                popUpTo("welcome")
+                            }
+                        } else {
+                            error = message
+                        }
+                    }
                 },
             )
         }
@@ -308,6 +341,7 @@ private fun AuthFlow(session: SessionViewModel) {
                 onCreate = { navController.navigate("register") },
                 onForgot = { navController.navigate("forgot") },
                 error = error,
+                notice = if (created) "Account created. Log in to open your dashboard." else null,
                 onSubmit = { email, password -> session.login(email, password) { error = it } },
             )
         }

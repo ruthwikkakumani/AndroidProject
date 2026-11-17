@@ -26,6 +26,7 @@ class SessionViewModel(app: Application) : AndroidViewModel(app) {
     ) {
         viewModelScope.launch {
             when (val result = accounts.register(name, email, password, confirm, campus)) {
+                is AuthResult.Created -> onResult(null)
                 is AuthResult.SignedIn -> onResult(null)
                 is AuthResult.Rejected -> onResult(result.message)
             }
@@ -37,6 +38,7 @@ class SessionViewModel(app: Application) : AndroidViewModel(app) {
             when (val result = accounts.login(email, password)) {
                 is AuthResult.SignedIn -> onResult(null)
                 is AuthResult.Rejected -> onResult(result.message)
+                AuthResult.Created -> onResult("Log in with the account you just created.")
             }
         }
     }

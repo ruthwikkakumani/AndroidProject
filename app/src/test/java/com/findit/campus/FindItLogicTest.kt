@@ -18,6 +18,8 @@ import com.findit.campus.ui.post.PostForm
 import com.findit.campus.ui.post.validatePost
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import com.findit.campus.ai.compareSamples
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -187,6 +189,14 @@ class FindItLogicTest {
             validateNewAccount("Ada", "ada@campus.edu", "longpassword", "otherpassword", "North Campus"),
         )
         assertNull(validateNewAccount("Ada", "ada@campus.edu", "longpassword", "longpassword", "North Campus"))
+    }
+
+    @Test
+    fun photoCheckAcceptsTheSamePictureAndRejectsADifferentColor() {
+        val red = IntArray(16 * 16) { 0xFFFF0000.toInt() }
+        val blue = IntArray(16 * 16) { 0xFF0000FF.toInt() }
+        assertTrue(compareSamples(red, red.copyOf(), 16).sameItem)
+        assertFalse(compareSamples(red, blue, 16).sameItem)
     }
 
     @Test

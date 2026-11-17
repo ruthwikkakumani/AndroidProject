@@ -11,4 +11,11 @@ object Migrations {
             db.execSQL(ADD_COLOR)
         }
     }
+
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE threads ADD COLUMN ownerChecked INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE threads ADD COLUMN guestChecked INTEGER NOT NULL DEFAULT 0")
+        }
+    }
 }

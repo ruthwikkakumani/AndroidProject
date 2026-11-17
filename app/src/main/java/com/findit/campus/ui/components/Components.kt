@@ -24,6 +24,8 @@ import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material.icons.outlined.Umbrella
 import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -141,6 +143,7 @@ fun ItemCard(
     item: Item,
     matchCount: Int,
     onClick: () -> Unit,
+    onFound: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val palette = FindItPalette.colors
@@ -213,6 +216,16 @@ fun ItemCard(
                         style = MaterialTheme.typography.labelMedium,
                         color = palette.reunion,
                     )
+                }
+                if (onFound != null && item.type == ItemType.LOST && item.status == ItemStatus.OPEN) {
+                    Button(
+                        onClick = onFound,
+                        modifier = Modifier.padding(top = 4.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF0F6E56),
+                            contentColor = Color.White,
+                        ),
+                    ) { Text("Found") }
                 }
             }
         }

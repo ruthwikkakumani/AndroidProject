@@ -55,7 +55,7 @@ fun MineScreen(
             item {
                 EmptyBoard(
                     title = "No reports yet",
-                    body = "Use Report to post something you lost or found. Sample cards stay on Discover.",
+                    body = "Tap Report to post an item you lost.",
                 )
             }
         }

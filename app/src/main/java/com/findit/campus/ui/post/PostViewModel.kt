@@ -139,7 +139,7 @@ class PostViewModel(
     fun dismissDuplicate() = _uiState.update { it.copy(duplicate = null) }
 
     fun save(force: Boolean = false) {
-        val draft = _uiState.value.form
+        val draft = _uiState.value.form.copy(type = ItemType.LOST)
         val problem = validatePost(draft)
         if (problem != null) {
             _uiState.update { it.copy(message = problem) }

@@ -42,6 +42,7 @@ data class HomeUiState(
     val categoryCounts: Map<String, Int> = emptyMap(),
     val selectedId: Long = -1L,
     val selectedMatches: List<MatchPreview> = emptyList(),
+    val lostBoard: List<Item> = emptyList(),
     val loading: Boolean = true,
     val error: String? = null,
 )
@@ -92,6 +93,7 @@ fun buildHomeState(
         categoryCounts = all.groupingBy { it.category }.eachCount(),
         selectedId = filter.selectedId,
         selectedMatches = selectedMatches,
+        lostBoard = all.filter { it.type == ItemType.LOST && it.status == ItemStatus.OPEN },
         loading = false,
     )
 }

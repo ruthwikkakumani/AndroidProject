@@ -1,5 +1,7 @@
 package com.findit.campus.ui.auth
 
+import androidx.compose.foundation.layout.displayCutoutPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,7 +42,11 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun WelcomeScreen(onCreate: () -> Unit, onLogin: () -> Unit, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.fillMaxSize().padding(24.dp),
+        modifier = modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .displayCutoutPadding()
+            .padding(horizontal = 24.dp, vertical = 28.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("FindIt Campus", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.semantics { heading() })
@@ -130,6 +136,7 @@ fun LoginScreen(
     onCreate: () -> Unit,
     onForgot: () -> Unit,
     error: String?,
+    notice: String? = null,
     modifier: Modifier = Modifier,
 ) {
     var email by rememberSaveable { mutableStateOf("") }
@@ -152,6 +159,9 @@ fun LoginScreen(
         ) {
             Text("FindIt Campus", style = MaterialTheme.typography.labelLarge)
             Text("Welcome back", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
+            if (notice != null) {
+                Text(notice, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+            }
             OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth().testTag("login_email"), label = { Text("Email address") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
             OutlinedTextField(
                 password,

@@ -145,7 +145,7 @@ fun PostScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(if (capturing) "Take a photo" else "Report an item") },
+                title = { Text(if (capturing) "Take a photo" else "Report a lost item") },
                 navigationIcon = {
                     IconButton(onClick = { if (capturing) capturing = false else onBack() }) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
@@ -244,18 +244,7 @@ private fun PostFormColumn(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            SegmentedButton(
-                selected = form.type == ItemType.LOST,
-                onClick = { onType(ItemType.LOST) },
-                shape = SegmentedButtonDefaults.itemShape(0, 2),
-            ) { Text("Lost") }
-            SegmentedButton(
-                selected = form.type == ItemType.FOUND,
-                onClick = { onType(ItemType.FOUND) },
-                shape = SegmentedButtonDefaults.itemShape(1, 2),
-            ) { Text("Found") }
-        }
+        Text("Posting a lost item", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = form.title,
             onValueChange = onTitle,
@@ -323,15 +312,13 @@ private fun PostFormColumn(
             supportingText = { Text("Name the building or area. A map pin is optional.") },
             singleLine = true,
         )
-        if (form.type == ItemType.FOUND) {
-            OutlinedTextField(
-                value = form.privateDetail,
-                onValueChange = onPrivateDetail,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Private check (optional)") },
-                supportingText = { Text("Only someone who knows this detail can claim the item. It is not shown publicly.") },
-            )
-        }
+        OutlinedTextField(
+            value = form.privateDetail,
+            onValueChange = onPrivateDetail,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Private check (optional)") },
+            supportingText = { Text("A detail only the real owner would know. It stays hidden.") },
+        )
         OutlinedTextField(
             value = form.contact,
             onValueChange = onContact,

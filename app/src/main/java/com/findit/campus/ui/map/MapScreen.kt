@@ -3,7 +3,9 @@ package com.findit.campus.ui.map
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -49,14 +51,25 @@ fun MapScreen(
         onDispose { onTracking(false) }
     }
     val selected = state.items.firstOrNull { it.id == state.selectedId }
-    val hasPins = state.items.any { it.hasCoordinates } || state.fix != null
+    val itemPins = state.items.any { it.hasCoordinates }
     Box(modifier = modifier.fillMaxSize()) {
-        if (!hasPins) {
-            com.findit.campus.ui.components.EmptyBoard(
-                title = "No map pins yet",
-                body = "Name a place when you report an item. A map pin is optional and is only added when you choose it.",
+        if (!itemPins) {
+            Column(
                 modifier = Modifier.align(Alignment.Center).padding(24.dp),
-            )
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("No lost-item pins yet", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    if (state.fix != null) {
+                        "You are at ${String.format(java.util.Locale.US, "%.5f, %.5f", state.fix.latitude, state.fix.longitude)}. Pins appear when a report includes a location."
+                    } else {
+                        "Allow location, or add a pin when you report a lost item."
+                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (!granted) TextButton(onClick = ask) { Text("Allow location") }
+            }
         } else if (BuildConfig.MAPS_API_KEY.isNotBlank()) {
             GoogleCampusMap(
                 items = state.items,
@@ -83,7 +96,10 @@ fun MapScreen(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 FilterChip(selected = state.focus == MapFocus.CAMPUS, onClick = { onFocus(MapFocus.CAMPUS) }, label = { Text("Campus") })
                 FilterChip(selected = state.focus == MapFocus.NEAR_ME, onClick = {
                     if (granted) onFocus(MapFocus.NEAR_ME) else ask()

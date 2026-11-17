@@ -22,6 +22,7 @@ data class Account(
 )
 
 sealed interface AuthResult {
+    data object Created : AuthResult
     data class SignedIn(val account: Account) : AuthResult
     data class Rejected(val message: String) : AuthResult
 }
@@ -61,9 +62,7 @@ class AccountRepository(private val database: FindItDatabase) {
                 createdAt = System.currentTimeMillis(),
             ),
         )
-        accounts.saveSession(DeviceSessionEntity(accountId = id))
-        val created = accounts.findByEmail(normalized)!!.toAccount()
-        return AuthResult.SignedIn(created)
+        return if (id > 0) AuthResult.Created else AuthResult.Rejected("The account could not be created.")
     }
 
     suspend fun login(email: String, password: String): AuthResult {

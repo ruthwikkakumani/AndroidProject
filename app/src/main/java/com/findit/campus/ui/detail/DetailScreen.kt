@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.findit.campus.model.Item
 import com.findit.campus.model.ItemStatus
+import com.findit.campus.model.ItemType
 import com.findit.campus.model.matchLabel
 import com.findit.campus.ui.components.ItemPhoto
 import com.findit.campus.ui.components.SectionTitle
@@ -57,6 +59,8 @@ fun DetailScreen(
     onOpenMatch: (Long) -> Unit,
     onReunite: () -> Unit,
     onDelete: () -> Unit,
+    viewerId: Long = 0,
+    onReachOut: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -85,6 +89,8 @@ fun DetailScreen(
                 onOpenMatch = onOpenMatch,
                 onReunite = onReunite,
                 onDelete = onDelete,
+                viewerId = viewerId,
+                onReachOut = onReachOut,
                 modifier = Modifier.padding(padding),
             )
         }
@@ -98,6 +104,8 @@ fun ItemDetailBody(
     onOpenMatch: (Long) -> Unit,
     onReunite: () -> Unit,
     onDelete: () -> Unit,
+    viewerId: Long = 0,
+    onReachOut: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -151,6 +159,20 @@ fun ItemDetailBody(
                         }
                     }
                 }
+            }
+        }
+        item {
+            if (viewerId > 0 && item.ownerId != viewerId && item.status == ItemStatus.OPEN) {
+                Button(onClick = onReachOut, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (item.type == ItemType.LOST) "I found this — message them" else "This is mine — message them")
+                }
+            }
+            if (item.hasCoordinates) {
+                Text(
+                    "Exact pin: ${String.format(java.util.Locale.US, "%.5f, %.5f", item.latitude, item.longitude)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
         item {

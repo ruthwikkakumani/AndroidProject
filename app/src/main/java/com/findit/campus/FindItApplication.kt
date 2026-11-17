@@ -7,6 +7,7 @@ import com.findit.campus.ai.SmartMatchEngine
 import com.findit.campus.ai.TextScanner
 import com.findit.campus.data.FindItLog
 import com.findit.campus.data.AccountRepository
+import com.findit.campus.data.ChatRepository
 import com.findit.campus.data.ItemRepository
 import com.findit.campus.data.PhotoStore
 import com.findit.campus.data.local.FindItDatabase
@@ -23,6 +24,7 @@ class AppGraph(context: Application) {
     val insights = InsightEngine()
     val repository = ItemRepository(database, matcher, insights)
     val accounts = AccountRepository(database)
+    val chat = ChatRepository(database, repository)
     val photos = PhotoStore(context)
     val scanner = TextScanner()
     val location = LocationDataSource(context)
