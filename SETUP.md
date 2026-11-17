@@ -11,24 +11,17 @@ Accounts, reports, search, private conversations between accounts on the same in
 1. Create a project at [Firebase Console](https://console.firebase.google.com/). Add an **Android** app with package name `com.findit.campus`.
 2. Enable **Authentication → Sign-in method → Email/Password**. Do not enable anonymous sign-in for this app.
 3. Create **Cloud Firestore** in production mode. Create **Storage**. Firebase may require the Blaze billing plan for Storage; review its current pricing and set a budget alert before enabling it.
-4. Download the Android app configuration (`google-services.json`). This app initializes Firebase explicitly, so the Google Services Gradle plugin is not required. Copy the following values into your ignored `local.properties`:
+4. Download the Android app configuration (`google-services.json`) into **this project's `app` folder**. Gradle reads the matching Android client and imports the Firebase values, messaging sender ID, and Google web client ID automatically. The file is ignored by Git; keep your service-account private keys out of the app. This project initializes Firebase explicitly and does not need the Google Services Gradle plugin.
 
-   ```properties
-   FIREBASE_APPLICATION_ID=your mobilesdk_app_id
-   FIREBASE_API_KEY=your current_key
-   FIREBASE_PROJECT_ID=your project_id
-   FIREBASE_STORAGE_BUCKET=your storage_bucket
-   ```
-
-   In the JSON, `mobilesdk_app_id` is under `client → client_info`; `current_key` is under `client → api_key`; `project_id` and `storage_bucket` are under `project_info`. Keep the literal values, without quotes. You may keep `app/google-services.json` locally; it is ignored by Git. Never paste a service account private key into an Android app.
+   Nonblank `FIREBASE_APPLICATION_ID`, `FIREBASE_API_KEY`, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, and `GOOGLE_WEB_CLIENT_ID` values in ignored `local.properties` override the JSON. Remove stale overrides if you switch projects. No `.env` is needed.
 
 5. Publish [Firestore rules](firebase/firestore.rules) in **Firestore → Rules**, and [Storage rules](firebase/storage.rules) in **Storage → Rules**. Storage rules use Firestore lookups; accept the console prompt to enable the required cross-service permissions. Alternatively, with the Firebase CLI authenticated, run `firebase deploy --only firestore:rules,storage --project YOUR_PROJECT_ID` from this folder.
-6. Sync and rebuild in Android Studio. Create **new accounts** after connecting Firebase. Existing local-only accounts remain local; they are not silently uploaded or merged with a cloud identity. Signup takes you to Login, then the dashboard.
+6. Sync and rebuild in Android Studio. Create **new accounts** after connecting Firebase. Existing local-only accounts keep their password login and remain local; they are not silently uploaded or merged with a cloud identity. Signup takes you to Login, then the dashboard.
 7. Give both test accounts the same campus name. Matching ignores case and extra spaces. Use two phones/emulators: one posts a lost item; the second taps **Found it**; the first opens the named conversation in Messages. Share proof/answers, confirm both ownership checks, then confirm the physical handover on each phone.
 
 Public campus reports exclude private answers, contact details, and password hashes. Proof photos and messages are restricted to the two conversation participants. The supplied rules prevent a student from confirming the other person's side. Image evidence cannot prove ownership; participants must compare private details and inspect the physical item.
 
-Room saves changes before uploading. Pending writes retry after connectivity returns; each account's writes remain associated with their original author. Unread alerts arrive while campus services are connected and are available on the next sync. Enable Android notifications from Profile to receive private reply and return notifications while the app process is running; tapping an alert opens its conversation or report for the correct signed-in account. This project does not send background push notifications to a terminated app. Campus membership is self-declared at signup; an institution-wide deployment needs an administrator-controlled student membership process.
+Room saves changes before uploading. Pending writes retry after connectivity returns; each account's writes remain associated with their original author. Unread alerts arrive while campus services are connected and are available on the next sync. Enable Android notifications from Profile to receive private reply and return notifications while the app process is running; tapping an alert opens its conversation or report for the correct signed-in account. Background push support is implemented with Firebase Cloud Messaging and the server functions below. It requires deploying those functions; configuration alone does not activate server delivery. Android can delay delivery and will not deliver to an app that the user has force-stopped until it is reopened. Campus membership is self-declared at signup; an institution-wide deployment needs an administrator-controlled student membership process.
 
 ## Google sign-in (OAuth)
 
@@ -36,16 +29,28 @@ Email/password remains available. Google sign-in uses Android Credential Manager
 
 1. Complete Firebase setup above. In Firebase **Authentication → Sign-in method**, enable **Google** and choose a support email.
 2. In **Project settings → Your apps**, add the debug signing SHA-1 from `./gradlew signingReport`. Enable Google before downloading an updated Android configuration.
-3. Copy the **Web client ID** from the Google provider settings, or `client → oauth_client` with `client_type: 3` in the updated `google-services.json`. Use the web client ID, not the Android client ID.
-4. Add it to ignored `local.properties` and rebuild:
-
-   ```properties
-   GOOGLE_WEB_CLIENT_ID=your web OAuth client ID
-   ```
+3. Download the **updated** `google-services.json` again into `app`. It should contain an Android OAuth client for the signing SHA-1 and a web OAuth client (`client_type: 3`). Gradle imports the web client ID automatically.
+4. Sync and rebuild. If you need an explicit override, set `GOOGLE_WEB_CLIENT_ID` in ignored `local.properties` to the **web** OAuth client ID, not the Android client ID.
 
 5. Use a device/emulator with Google Play services and a Google account. Open Create account or Login and tap **Continue with Google**. A new Google user chooses their name and college before joining; an existing user opens their saved campus dashboard. OAuth tokens are not stored as Room passwords. Canceling the Google chooser leaves the current screen open.
 
-All six service values (the four Firebase values, Maps key, and web OAuth client ID) are optional for the local demo. They are configuration identifiers supplied by your own projects; do not invent them. No `.env` file is used. Live OAuth, Maps, and cross-device sync cannot be verified until these are configured.
+The Firebase JSON and Maps key are optional for the local demo. They are configuration identifiers supplied by your own projects; do not invent them. No `.env` file is used. This workspace already has the downloaded Firebase JSON, signing configuration and Maps key; real map tiles loaded on the emulator. The physical phone completed Google authentication but hit a profile permission error before rule deployment. Retry **Continue with Google** now that the rules are deployed, then complete the college step. Dashboard entry on that phone still needs to be observed.
+
+## Background notifications
+
+The server code is in [firebase/functions](firebase/functions). It sends a private routing-only alert when another student starts a conversation, sends a message, or confirms an ownership check/handover. Message text and proof photos stay in Firestore/Storage. A device token is registered only for the signed-in cloud account, and the Android receiver checks the intended account before showing an alert.
+
+Use Node 22 and an authenticated Firebase CLI. Cloud Functions deployment requires an eligible billing plan; review the cost before upgrading. From this project folder:
+
+```sh
+npm ci --prefix firebase/functions
+npm test --prefix firebase/functions
+firebase deploy --only firestore:rules,storage,functions --project YOUR_PROJECT_ID
+```
+
+Choose your own Firebase project ID. Grant Android notification permission from Profile. Test two cloud accounts on separate devices, then place the recipient app in the background and send a reply. In this workspace, Firestore and photo storage were created in the database region, both service rules and cross-service Storage permissions were deployed, and all three notification functions were successfully created. A two-account live service check passed signup, profiles, photos, chat and both-user handover, then removed its temporary QA data. Physical two-device UI synchronization and background push delivery remain to be checked. Existing local demo accounts do not register cloud tokens.
+
+The CLI reported successful function creation followed by a missing container-artifact cleanup-policy notice. Function listing verified the deployment. No automatic artifact deletion policy was enabled; the project owner can choose retention separately in Firebase/Artifact Registry.
 
 ## Google Maps SDK key
 
@@ -72,6 +77,7 @@ An emulator displays its simulated position. In the emulator's **Extended contro
 ```sh
 ./gradlew assembleDebug testDebugUnitTest lintDebug
 ./gradlew connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
+npx firebase-tools emulators:exec --only firestore --project demo-findit --config firebase-tests.json 'node --test firebase/rules/flow.test.cjs'
 ```
 
 The connected tests require an unlocked emulator/device with both cameras available, Location enabled, and a supplied emulator location. The retention flag leaves the app installed afterward. For a same-device college walkthrough, use [DEMO.md](DEMO.md). The debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Service rules and cross-device Firebase behavior must be tested against your configured project before distributing the app.

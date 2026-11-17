@@ -1,15 +1,15 @@
 # Known limitations
 
 - Local mode shares data between accounts on the same installation. Different phones require configured Firebase; existing local accounts are not automatically converted to cloud accounts.
-- Firebase integration and service rules need validation against your configured project. No live cloud project was available for this pass.
-- Alerts are stored in-app and synchronize on connection. Android notifications are available after permission is enabled while the app process is running; a terminated app does not receive Firebase background push notifications.
-- Google OAuth needs Firebase Google sign-in, a configured web client ID, and Google Play services. It has not been tested against a live configured project.
+- Firebase configuration is connected, Firestore/Storage rules are deployed, and a live two-account service check passed signup, profiles, photo sharing, private chat and both-user handover. Physical two-device UI synchronization still needs validation.
+- Alerts are stored in-app and synchronize on connection. Android notification delivery is covered by device tests; all three Firebase background notification functions are deployed. Live background push delivery to two physical devices remains unverified. Force-stopped apps do not receive pushes until reopened.
+- Google OAuth requires Google Play services. The physical phone completed Google authentication but its subsequent profile read was denied before the rules deployment. That rule failure is fixed and live first-profile setup passes; retrying Google and opening the dashboard on the phone remains to be observed.
 - Campus membership is self-declared; email/password or Google authentication does not verify institutional membership. College suggestions are a bundled convenience list, not an exhaustive or verified directory.
 - Live Google Maps was verified with the locally configured SDK key. Other checkouts need their own restricted SDK key; the unconfigured map is explicitly labelled as a pin preview.
 - Walking trails record your own device only while the map is open. There is no background or other-student tracking. Up to 5,000 points are saved per account; fixes worse than 60 m accuracy are excluded. Walking directions open Google Maps externally; the app does not provide native turn-by-turn navigation.
 - GPS accuracy depends on hardware, permission and surroundings. Emulator coordinates are simulated. Physical-phone camera/GPS behavior remains to be checked.
-- OCR/image comparison gives clues, never ownership proof. Students must compare private details and inspect the physical item.
+- Object recognition, OCR and image comparison give clues, never ownership proof. Students must compare private details and inspect the physical item. Bundled recognition passed real-photo and readable-text tests; unclear or unsupported objects may require a typed clue.
 - Automated checks used one Android 17 emulator. TalkBack, older devices and all tablet sizes have not been fully audited.
 - Local password recovery cannot send email. Configured Firebase provides email recovery.
 
-These are acceptable demonstration boundaries, not a claim of a production deployment. See [the demo guide](../DEMO.md).
+Play Store publishing still needs release signing, a privacy policy and data-safety declaration, account deletion, and moderation/reporting/blocking for student content, plus physical-device validation. The debug APK is for demonstration and testing. See [the demo guide](../DEMO.md). Google reported that the functions were successfully deployed, then exited with a container-artifact cleanup-policy notice; function listing confirmed all three deployments. No automatic artifact deletion policy was enabled.
