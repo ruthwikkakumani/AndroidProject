@@ -20,6 +20,10 @@ import com.findit.campus.model.ItemStatus
 import com.findit.campus.model.ItemType
 import com.findit.campus.ui.post.PostForm
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -72,11 +76,10 @@ class RepositoryFlowTest {
         } finally { saved.close(); context.deleteDatabase(name) }
     }
 
-    @Test fun connectingFirebasePreservesLocalAccountLoginWithoutConvertingItsIdentity() = runBlocking {
+    @Test fun offlineAccountRetainsIdentityAndRejectsWrongPassword() = runBlocking {
         assertTrue(accounts.register("Local student", "local@example.edu", "Secret123!", "Secret123!", "Test Campus") is AuthResult.Created)
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val connectedCloud = CloudServices(context)
-        org.junit.Assume.assumeTrue(connectedCloud.configured)
+        val connectedCloud = CloudServices(context, enabled = false)
         val connectedAccounts = AccountRepository(db, connectedCloud)
         assertTrue(connectedAccounts.login("local@example.edu", "wrong-password") is AuthResult.Rejected)
         assertNull(connectedAccounts.observeAccount().first())
@@ -157,6 +160,22 @@ class RepositoryFlowTest {
         assertTrue(db.syncDao().pending("different-student").isEmpty())
         db.syncDao().acknowledge(updated.key, updated.payload)
         assertTrue(db.syncDao().pending("student").isEmpty())
+    }
+
+    @Test fun importingAnotherStudentDoesNotRestartTheCurrentAccountSession() = runBlocking {
+        val id = student("owner")
+        val changes = Channel<com.findit.campus.data.Account?>(Channel.UNLIMITED)
+        val observer = launch { accounts.observeAccount().collect { changes.send(it) } }
+        try {
+            assertEquals(id, withTimeout(3000) { changes.receive() }?.id)
+            db.accountDao().upsert(com.findit.campus.data.local.AccountEntity(
+                id = id + 100, displayName = "Another student", email = "peer@findit.local",
+                passwordHash = "", passwordSalt = "", campusName = "City College", createdAt = 0,
+                remoteUid = "peer-uid"))
+            assertNull(withTimeoutOrNull(750) { changes.receive() })
+            accounts.logout()
+            assertNull(withTimeout(3000) { changes.receive() })
+        } finally { observer.cancel(); changes.close() }
     }
 
     private suspend fun student(name: String): Long {

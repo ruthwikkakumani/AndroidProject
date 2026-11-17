@@ -62,9 +62,17 @@ class CloudSync(private val cloud: CloudServices, private val db: FindItDatabase
                 launch {
                     watch(store.collection("messages").whereArrayContains("participantUids", uid)) { importMessage(it) }
                 }
-                while (true) {
-                    for (write in db.syncDao().pending(uid).sortedBy {
-                        when (it.collection) { "items" -> 0; "threads" -> 1; else -> 2 }
+                db.syncDao().observePending(uid).collect {
+                    // Room may buffer an older snapshot while an upload is in progress.
+                    var retry = db.syncDao().pending(uid)
+                    while (retry.isNotEmpty()) {
+                    for (write in retry.sortedBy {
+                        when (it.collection) {
+                            // New reports precede new conversations; handovers follow both confirmations.
+                            "items" -> if (JSONObject(it.payload).has("returnThreadId")) 3 else 0
+                            "threads" -> 1
+                            else -> 2
+                        }
                     }) {
                         try {
                             withTimeout(30_000) { upload(write) }
@@ -78,7 +86,9 @@ class CloudSync(private val cloud: CloudServices, private val db: FindItDatabase
                         state.value = SyncState(true, false, "Changes are saved on this device. Sync will retry when connected.")
                     }
                     }
-                    delay(5_000)
+                    retry = db.syncDao().pending(uid)
+                    if (retry.isNotEmpty()) delay(5_000)
+                    }
                 }
                 }
             }

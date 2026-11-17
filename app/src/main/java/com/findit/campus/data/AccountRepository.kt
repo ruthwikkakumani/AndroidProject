@@ -1,5 +1,8 @@
 package com.findit.campus.data
 
+import androidx.room.withTransaction
+import com.findit.campus.data.cloud.CloudSync
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.findit.campus.auth.PasswordHasher
 import com.findit.campus.auth.isValidEmail
 import com.findit.campus.auth.validateNewAccount
@@ -23,6 +26,7 @@ import kotlinx.coroutines.flow.first
 import java.util.Base64
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -59,7 +63,7 @@ class AccountRepository(private val database: FindItDatabase, private val cloud:
         } else {
             accounts.observeById(session.accountId).map { entity -> entity?.toAccount() }
         }
-    }
+    }.distinctUntilChanged()
 
     suspend fun register(
         name: String,
@@ -111,8 +115,8 @@ class AccountRepository(private val database: FindItDatabase, private val cloud:
             return AuthResult.Rejected("Enter the email and password for your account.")
         }
         val saved = accounts.findByEmail(email.trim().lowercase(Locale.ROOT))
-        // Connecting Firebase must not lock students out of their existing local demo accounts.
-        if (saved != null && saved.remoteUid == null) return loginSavedAccount(saved, password)
+        // Online login connects older accounts; their saved reports keep their identity and history.
+        if (saved != null && saved.remoteUid == null) return if (cloud.configured) connectLocalAccount(saved, password) else loginSavedAccount(saved, password)
         if (cloud.configured) {
             try {
                 val user = cloud.auth!!.signInWithEmailAndPassword(email.trim(), password).awaitResult().user
@@ -135,6 +139,55 @@ class AccountRepository(private val database: FindItDatabase, private val cloud:
         }
         return saved?.let { loginSavedAccount(it, password) }
             ?: AuthResult.Rejected("Those details do not match an account.")
+    }
+
+    suspend fun connectCurrentAccount(password: String): AuthResult {
+        val current = observeAccount().first() ?: return AuthResult.Rejected("Sign in first.")
+        val saved = accounts.getById(current.id) ?: return AuthResult.Rejected("Account unavailable.")
+        return if (saved.remoteUid != null) login(saved.email, password) else connectLocalAccount(saved, password)
+    }
+
+    private suspend fun connectLocalAccount(saved: AccountEntity, password: String): AuthResult {
+        if (!withContext(Dispatchers.Default) { PasswordHasher.verify(password, saved.passwordSalt, saved.passwordHash) })
+            return AuthResult.Rejected("Those details do not match your saved account.")
+        if (!cloud.configured) return AuthResult.Rejected("Campus services are not configured.")
+        return try {
+            val auth = cloud.auth!!
+            val user = try { auth.createUserWithEmailAndPassword(saved.email, password).awaitResult().user }
+                catch (_: FirebaseAuthUserCollisionException) { auth.signInWithEmailAndPassword(saved.email, password).awaitResult().user }
+                ?: return AuthResult.Rejected("Account connection could not be completed.")
+            val id = stableId(user.uid)
+            require(id == saved.id || accounts.getById(id) == null) {
+                "This online account is already on this phone. Sign out and use that account to preserve both histories."
+            }
+            val reference = cloud.store!!.collection("profiles").document(user.uid)
+            val profile = reference.get().awaitResult()
+            if (profile.exists()) {
+                require(campusKey(profile.getString("campusName").orEmpty()) == campusKey(saved.campusName)) {
+                    "This online account belongs to a different college. Your saved data is unchanged."
+                }
+            } else reference.set(mapOf("uid" to user.uid, "localId" to id, "displayName" to saved.displayName,
+                "campusName" to saved.campusName, "campusKey" to campusKey(saved.campusName))).awaitResult()
+            database.withTransaction {
+                accounts.connectIdentity(saved.id, id, user.uid)
+                accounts.connectReports(saved.id, id, user.uid)
+                accounts.connectOwnedThreads(saved.id, id, user.uid)
+                accounts.connectGuestThreads(saved.id, id, user.uid)
+                accounts.connectMessages(saved.id, id)
+                accounts.connectNotifications(saved.id, id)
+                accounts.connectTrail(saved.id, id)
+                accounts.connectSession(saved.id, id)
+                accounts.saveSession(DeviceSessionEntity(accountId = id))
+                val sync = CloudSync(cloud, database)
+                database.itemDao().listAll().filter { it.item.ownerId == id }.forEach { sync.queueItem(it.item.id) }
+            }
+            AuthResult.SignedIn(accounts.getById(id)!!.toAccount())
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (error: Exception) {
+            FindItLog.e("Account connection failed", error)
+            AuthResult.Rejected(if (error is IllegalArgumentException) error.message.orEmpty()
+                else "Could not connect. Check your connection and online password. Your saved reports are still here.")
+        }
     }
 
     private suspend fun loginSavedAccount(entity: AccountEntity, password: String): AuthResult {

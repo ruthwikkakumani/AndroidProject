@@ -32,7 +32,7 @@ suspend fun <T> Task<T>.awaitResult(): T = suspendCancellableCoroutine { continu
 }
 
 /** Configuration comes from ignored google-services.json or local.properties. */
-class CloudServices(context: Context, enabled: Boolean = true) {
+class CloudServices(context: Context, enabled: Boolean = true, appName: String = FirebaseApp.DEFAULT_APP_NAME) {
     private val installationId: String by lazy {
         val preferences = context.getSharedPreferences("push_installation", Context.MODE_PRIVATE)
         preferences.getString("id", null) ?: UUID.randomUUID().toString().also {
@@ -45,14 +45,14 @@ class CloudServices(context: Context, enabled: Boolean = true) {
         BuildConfig.FIREBASE_PROJECT_ID.isNotBlank() &&
         BuildConfig.FIREBASE_STORAGE_BUCKET.isNotBlank()
     ) {
-        FirebaseApp.getApps(context).firstOrNull { it.name == FirebaseApp.DEFAULT_APP_NAME }
+        FirebaseApp.getApps(context).firstOrNull { it.name == appName }
             ?: FirebaseApp.initializeApp(context, FirebaseOptions.Builder()
             .setApplicationId(BuildConfig.FIREBASE_APPLICATION_ID)
             .setApiKey(BuildConfig.FIREBASE_API_KEY)
             .setProjectId(BuildConfig.FIREBASE_PROJECT_ID)
             .setStorageBucket(BuildConfig.FIREBASE_STORAGE_BUCKET)
             .apply { if (BuildConfig.FIREBASE_MESSAGING_SENDER_ID.isNotBlank()) setGcmSenderId(BuildConfig.FIREBASE_MESSAGING_SENDER_ID) }
-            .build())
+            .build(), appName)
     } else null
 
     val configured: Boolean get() = app != null

@@ -44,6 +44,23 @@ data class NotificationEntity(
 
 @Dao
 interface AccountDao {
+    @Query("UPDATE accounts SET id = :newId, remoteUid = :uid WHERE id = :oldId")
+    suspend fun connectIdentity(oldId: Long, newId: Long, uid: String)
+    @Query("UPDATE items SET ownerId = :newId, ownerUid = :uid WHERE ownerId = :oldId")
+    suspend fun connectReports(oldId: Long, newId: Long, uid: String)
+    @Query("UPDATE threads SET ownerId = :newId, ownerUid = :uid WHERE ownerId = :oldId")
+    suspend fun connectOwnedThreads(oldId: Long, newId: Long, uid: String)
+    @Query("UPDATE threads SET guestId = :newId, guestUid = :uid WHERE guestId = :oldId")
+    suspend fun connectGuestThreads(oldId: Long, newId: Long, uid: String)
+    @Query("UPDATE messages SET senderId = :newId WHERE senderId = :oldId")
+    suspend fun connectMessages(oldId: Long, newId: Long)
+    @Query("UPDATE notifications SET accountId = :newId WHERE accountId = :oldId")
+    suspend fun connectNotifications(oldId: Long, newId: Long)
+    @Query("UPDATE walking_trail SET accountId = :newId WHERE accountId = :oldId")
+    suspend fun connectTrail(oldId: Long, newId: Long)
+    @Query("UPDATE device_session SET accountId = :newId WHERE accountId = :oldId")
+    suspend fun connectSession(oldId: Long, newId: Long)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(account: AccountEntity)
 

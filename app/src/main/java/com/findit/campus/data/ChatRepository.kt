@@ -32,6 +32,10 @@ class ChatRepository(
         val item = database.itemDao().getById(itemId) ?: return@withTransaction null
         val account = database.accountDao().getById(accountId) ?: return@withTransaction null
         require(item.campusKey == com.findit.campus.data.cloud.campusKey(account.campusName)) { "This report belongs to another campus." }
+        if (sync.status.value.configured) {
+            require(account.remoteUid != null) { "Connect your account from Home to message other students." }
+            require(item.ownerUid.isNotBlank()) { "This report is still local. Its owner needs to connect their account." }
+        }
         // Owners choose an exact conversation from the inbox; never pick an arbitrary claimant.
         if (accountId == item.ownerId) return@withTransaction null
         require(item.status == ItemStatus.OPEN) { "This item has already been returned." }
@@ -52,6 +56,9 @@ class ChatRepository(
 
     suspend fun send(threadId: Long, senderId: Long, body: String, photoPath: String? = null) = database.withTransaction {
         val thread = participant(threadId, senderId)
+        if (sync.status.value.configured) require(thread.ownerUid.isNotBlank() && thread.guestUid.isNotBlank()) {
+            "Both accounts must connect before messages can reach another phone."
+        }
         val text = body.trim().take(1000)
         require(text.isNotEmpty() || photoPath != null) { "Write a message first." }
         val message = MessageEntity(newId(), threadId, senderId, text, photoPath, System.currentTimeMillis())

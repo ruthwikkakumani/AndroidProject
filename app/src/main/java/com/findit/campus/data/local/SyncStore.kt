@@ -27,6 +27,9 @@ interface SyncDao {
     @Query("SELECT * FROM sync_queue WHERE accountUid = :uid ORDER BY createdAt ASC")
     suspend fun pending(uid: String): List<PendingWrite>
 
+    @Query("SELECT * FROM sync_queue WHERE accountUid = :uid ORDER BY createdAt ASC")
+    fun observePending(uid: String): Flow<List<PendingWrite>>
+
     @Query("SELECT COUNT(*) FROM sync_queue")
     fun observePendingCount(): Flow<Int>
 
