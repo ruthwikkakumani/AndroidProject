@@ -8,23 +8,8 @@ import com.findit.campus.FindItApplication
 import com.findit.campus.data.FindItLog
 import com.findit.campus.data.scaleDown
 import com.findit.campus.ui.home.MatchPreview
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 
 data class ScanUiState(
     val text: String = "",
@@ -33,87 +18,75 @@ data class ScanUiState(
     val message: String? = null,
     val objects: List<String> = emptyList(),
     val messageIsError: Boolean = false,
+    val confidences: Map<String, Float> = emptyMap(),
+    val scene: List<String> = emptyList(),
+    val photo: Bitmap? = null,
 )
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 class ScanViewModel(app: Application) : AndroidViewModel(app) {
     private val graph = getApplication<FindItApplication>().graph
     private val repository = graph.repository
-    private val text = MutableStateFlow("")
-    private val busy = MutableStateFlow(false)
-    private val message = MutableStateFlow<String?>(null)
-    private val objects = MutableStateFlow(emptyList<String>())
-    private val messageIsError = MutableStateFlow(false)
+    private val state = MutableStateFlow(ScanUiState())
 
-    private val hits: StateFlow<List<MatchPreview>> = text
-        .debounce(200)
-        .distinctUntilChanged()
-        .flatMapLatest { value ->
-            if (value.trim().length < 2) {
-                flowOf(emptyList())
-            } else {
-                repository.observeAll().map { items ->
-                    val scored = repository.textHits(value, items)
-                    scored.mapNotNull { match ->
-                        val item = items.firstOrNull { it.id == match.itemId } ?: return@mapNotNull null
-                        MatchPreview(item, match.score, match.reasons)
-                    }
+    private val hits = state.map { it.text }.distinctUntilChanged().debounce(200)
+        .flatMapLatest { query ->
+            if (query.trim().length < 2) flowOf(query to emptyList<MatchPreview>())
+            else repository.observeAll().map { items ->
+                query to repository.textHits(query, items).mapNotNull { match ->
+                    val item = items.firstOrNull { it.id == match.itemId } ?: return@mapNotNull null
+                    MatchPreview(item, match.score, match.reasons)
                 }
             }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private val feedback = kotlinx.coroutines.flow.combine(message, objects, messageIsError) { note, clues, error ->
-        Triple(note, clues, error)
-    }
-    val uiState: StateFlow<ScanUiState> = kotlinx.coroutines.flow.combine(text, hits, busy, feedback) { value, found, working, feedback ->
-        ScanUiState(text = value, hits = found, busy = working, message = feedback.first,
-            objects = feedback.second, messageIsError = feedback.third)
+    val uiState: StateFlow<ScanUiState> = combine(state, hits) { current, result ->
+        // Hide the preceding query's results while the new search is debouncing.
+        current.copy(hits = if (result.first == current.text && !current.busy) result.second else emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ScanUiState())
 
     fun onText(value: String) {
-        text.value = value.take(500)
-        message.value = null
+        state.update { it.copy(text = value.take(500), message = null, messageIsError = false) }
     }
 
     fun onPhoto(bitmap: Bitmap) {
-        if (busy.value) { bitmap.recycle(); return }
+        if (state.value.busy) { bitmap.recycle(); return }
+        state.update { ScanUiState(busy = true) }
         viewModelScope.launch {
-            busy.value = true
-            message.value = null
-            objects.value = emptyList()
-            messageIsError.value = false
             var scaled: Bitmap? = null
             try {
-                scaled = withContext(Dispatchers.Default) { scaleDown(bitmap, 1600) }
-                val clues = graph.checker.scan(scaled)
-                objects.value = clues.objects
-                if (clues.text.isNotBlank()) {
-                    text.value = clues.text.take(500)
-                    message.value = "Photo scanned. Review the writing or tap an object clue to search."
-                } else if (clues.objects.isNotEmpty()) {
-                    text.value = clues.objects.first()
-                    message.value = "No writing visible; AI found object clues instead. Tap a clue to search."
-                } else {
-                    message.value = "No clear clues detected. Try a closer, well-lit photo or type a description."
+                val input = withContext(Dispatchers.Default) { scaleDown(bitmap, 1600) }
+                scaled = input
+                val preview = withContext(Dispatchers.Default) {
+                    val small = scaleDown(input, 800)
+                    // UI owns a separate, bounded preview; inference bitmaps are recycled below.
+                    small.copy(Bitmap.Config.ARGB_8888, false).also { if (small !== input) small.recycle() }
                 }
+                state.update { it.copy(photo = preview) }
+                val clues = graph.checker.scan(input)
+                state.update { it.copy(
+                    text = clues.text.take(500), objects = clues.objects,
+                    confidences = clues.confidences, scene = clues.scene,
+                    message = when {
+                        clues.text.isNotBlank() -> "Writing found. Review it before searching or posting."
+                        clues.objects.isNotEmpty() -> "Item clues found. Choose one that describes your item."
+                        clues.scene.isNotEmpty() -> "Only the surroundings were recognized. Move closer to the item or choose another photo."
+                        else -> "No clear clues yet. Try a well-lit close-up or type a description."
+                    },
+                ) }
             } catch (error: TimeoutCancellationException) {
-                messageIsError.value = true
-                message.value = "Scanning took too long. Try a smaller, clearer photo."
+                state.update { it.copy(messageIsError = true, message = "Scanning took too long. Try a smaller, clearer photo.") }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 FindItLog.e("Scan failed", error)
-                messageIsError.value = true
-                message.value = "Could not scan this photo. Try another photo, or type a clue below."
+                state.update { it.copy(messageIsError = true, message = "Could not scan this photo. Try another photo, or type a clue below.") }
             } finally {
                 if (scaled !== bitmap) scaled?.recycle()
                 bitmap.recycle()
-                busy.value = false
+                state.update { it.copy(busy = false) }
             }
         }
     }
 
-    fun consumeMessage() {
-        message.update { null }
-    }
+    fun consumeMessage() { state.update { it.copy(message = null) } }
 }

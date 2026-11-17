@@ -15,15 +15,22 @@ import kotlinx.coroutines.withTimeout
 class PhotoCheckEngine(private val scanner: TextScanner) {
     private val labeler = ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
 
-    data class ScanClues(val text: String, val objects: List<String>)
+    data class ScanClues(
+        val text: String,
+        val objects: List<String>,
+        val confidences: Map<String, Float> = emptyMap(),
+        val scene: List<String> = emptyList(),
+    )
 
     /** Both models are bundled, so a plain object can supply clues without any visible writing. */
     suspend fun scan(bitmap: Bitmap): ScanClues = withContext(Dispatchers.Default) {
         withTimeout(30_000) {
             coroutineScope {
                 val writing = async { scanner.read(bitmap) }
-                val objects = async { meaningfulLabels(bitmap).take(5) }
-                ScanClues(writing.await(), objects.await())
+                val objects = async { classifiedLabels(bitmap) }
+                val clues = objects.await()
+                ScanClues(writing.await(), clues.items.map { it.label },
+                    clues.items.associate { it.label to it.confidence }, clues.scene.map { it.label })
             }
         }
     }
@@ -52,12 +59,10 @@ class PhotoCheckEngine(private val scanner: TextScanner) {
         }
     }
 
-    private suspend fun meaningfulLabels(bitmap: Bitmap): List<String> = labels(bitmap)
-        .filter { it.confidence >= 0.65f }
-        .sortedByDescending { it.confidence }
-        .map { it.text.lowercase(java.util.Locale.ROOT) }
-        .distinct()
-        .filterNot { it in setOf("product", "material", "pattern", "font", "art") }
+    private suspend fun meaningfulLabels(bitmap: Bitmap): List<String> = classifiedLabels(bitmap).items.map { it.label }
+
+    private suspend fun classifiedLabels(bitmap: Bitmap): ClassifiedClues =
+        classifyScanLabels(labels(bitmap).map { LabelClue(it.text, it.confidence) })
 
     private suspend fun labels(bitmap: Bitmap): List<com.google.mlkit.vision.label.ImageLabel> {
         val input = bitmap.copy(Bitmap.Config.ARGB_8888, false)
