@@ -260,7 +260,7 @@ class CloudSync(private val cloud: CloudServices, private val db: FindItDatabase
         if (isNew && d["senderUid"] != cloud.auth?.currentUser?.uid) {
             val t = db.chatDao().getThread(d.number("threadId")) ?: return
             val receiverId = if (d["senderUid"] == t.ownerUid) t.guestId else t.ownerId
-            notify(receiverId, t.itemId, t.id, "New message", d.string("body").take(100).ifBlank { "A photo was shared." })
+            notify(receiverId, t.itemId, t.id, "New message", com.findit.campus.data.chatPreview(d.string("body")).take(100))
         }
     }
 

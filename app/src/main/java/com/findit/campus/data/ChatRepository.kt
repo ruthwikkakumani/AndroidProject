@@ -65,7 +65,7 @@ class ChatRepository(
         chat.insertMessage(message)
         sync.queueMessage(message)
         notify(if (senderId == thread.ownerId) thread.guestId else thread.ownerId, thread.itemId, threadId,
-            "New message", text.take(100).ifBlank { "A proof photo was shared." })
+            "New message", chatPreview(text).take(100))
     }
 
     suspend fun checkPhoto(threadId: Long, senderId: Long, proofPath: String): ImageVerdict {

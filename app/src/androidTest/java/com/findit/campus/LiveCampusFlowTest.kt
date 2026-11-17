@@ -92,6 +92,17 @@ class LiveCampusFlowTest {
             withTimeout(45_000) { ownerChat.observeMessages(threadId).first { rows ->
                 rows.any { com.findit.campus.location.MeetingPin.decode(it.body) == pin }
             } }
+            val ownerPin = pin.copy(latitude = pin.latitude + .0004, longitude = pin.longitude + .0007, live = true)
+            ownerChat.send(threadId, ownerId, ownerPin.encode())
+            withTimeout(45_000) { guestChat.observeMessages(threadId).first { rows ->
+                rows.any { com.findit.campus.location.MeetingPin.decode(it.body) == ownerPin }
+            } }
+            val contact = PrivateContact("+91 98765 43210", "QA fixture, no calls")
+            guestChat.send(threadId, guestId, contact.encode())
+            withTimeout(45_000) { ownerChat.observeMessages(threadId).first { rows -> rows.any { PrivateContact.decode(it.body) == contact } } }
+            val plan = MeetingPlan("Library entrance", "Today, 3:30 PM", "QA meeting fixture")
+            ownerChat.send(threadId, ownerId, plan.encode())
+            withTimeout(45_000) { guestChat.observeMessages(threadId).first { rows -> rows.any { MeetingPlan.decode(it.body) == plan } } }
             guestChat.send(threadId, guestId, "Ownership details: navy, mountain sticker, library")
             guestChat.confirmSide(threadId, guestId)
             withTimeout(45_000) { ownerChat.observeThread(threadId).first { it?.guestChecked == true } }

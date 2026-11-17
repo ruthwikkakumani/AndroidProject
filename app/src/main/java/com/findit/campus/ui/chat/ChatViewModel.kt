@@ -9,7 +9,10 @@ import com.findit.campus.FindItApplication
 import com.findit.campus.data.local.*
 import com.findit.campus.model.Item
 import com.findit.campus.location.MeetingPin
+import com.findit.campus.data.PrivateContact
+import com.findit.campus.data.MeetingPlan
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withTimeoutOrNull
 import com.findit.campus.data.scaleDown
 import kotlinx.coroutines.CancellationException
@@ -83,33 +86,42 @@ class ChatViewModel(app: Application, private val savedStateHandle: SavedStateHa
         }
     }
     fun stopSharingLocation() {
-        sharingGeneration++
-        sharingJob?.cancel(); sharingJob = null
+        sharingJob?.cancel()
         state.update { it.copy(sharingLocation = false) }
     }
     @OptIn(kotlinx.coroutines.FlowPreview::class)
     fun shareLocation(live: Boolean) {
-        if (sharingJob?.isActive == true || state.value.thread == null) return
+        if (sharingJob != null || state.value.thread == null) return
         val generation = ++sharingGeneration
         sharingJob = viewModelScope.launch {
+            var lastPin: MeetingPin? = null
+            val current = state.value
+            val id = current.thread!!.id
             try {
-                val current = state.value
-                val id = current.thread!!.id
                 require(current.onlineAccount) { "Connect your account from Home before sharing a meeting location." }
                 val fix = graph.location.current() ?: error("No fresh GPS position. Enable location and try again outdoors.")
-                graph.chat.send(id, current.viewerId, MeetingPin(fix.latitude, fix.longitude, fix.accuracyMeters, fix.capturedAtMillis, live).encode())
+                lastPin = MeetingPin(fix.latitude, fix.longitude, fix.accuracyMeters, fix.capturedAtMillis, live)
+                graph.chat.send(id, current.viewerId, lastPin.encode())
                 state.update { it.copy(sharingLocation = live, notice = if (live) "Sharing while this chat is open, for up to 15 minutes. Tap Stop or leave the chat to end sharing."
                     else "Meeting location saved. It will reach this student when uploaded.") }
                 if (live) withTimeoutOrNull(15 * 60_000L) {
                     graph.location.updates().sample(15_000).collect { next ->
                         require(graph.location.hasPermission()) { "Location permission was removed." }
-                        if (MeetingPin(next.latitude, next.longitude, next.accuracyMeters, next.capturedAtMillis).recent())
-                            graph.chat.send(id, current.viewerId, MeetingPin(next.latitude, next.longitude, next.accuracyMeters, next.capturedAtMillis, true).encode())
+                        if (MeetingPin(next.latitude, next.longitude, next.accuracyMeters, next.capturedAtMillis).recent()) {
+                            lastPin = MeetingPin(next.latitude, next.longitude, next.accuracyMeters, next.capturedAtMillis, true)
+                            graph.chat.send(id, current.viewerId, lastPin!!.encode())
+                        }
                     }
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) { reportError(error.message ?: "Location could not be shared.") }
             finally {
+                // Publish the end of sharing without inventing a newer GPS timestamp.
+                if (lastPin?.live == true) withContext(NonCancellable) {
+                    withTimeoutOrNull(5_000) {
+                        runCatching { graph.chat.send(id, current.viewerId, lastPin!!.copy(live = false).encode()) }
+                    }
+                }
                 if (generation == sharingGeneration) {
                     state.update { it.copy(sharingLocation = false) }
                     sharingJob = null
@@ -119,6 +131,14 @@ class ChatViewModel(app: Application, private val savedStateHandle: SavedStateHa
     }
 
     fun send() = action { current, id -> graph.chat.send(id, current.viewerId, current.draft); onDraft("") }
+    fun shareContact(phone: String, note: String) = action { current, id ->
+        graph.chat.send(id, current.viewerId, PrivateContact(phone, note).encode())
+        state.update { it.copy(notice = "Contact card saved privately. It reaches this student after upload.") }
+    }
+    fun shareMeeting(place: String, time: String, note: String) = action { current, id ->
+        graph.chat.send(id, current.viewerId, MeetingPlan(place, time, note).encode())
+        state.update { it.copy(notice = "Meeting plan saved. Agree together in chat before setting off.") }
+    }
     fun sendAnswers() = action { current, id ->
         require(current.colorAnswer.isNotBlank() && current.markAnswer.isNotBlank() && current.placeAnswer.isNotBlank()) { "Answer all three questions before sharing." }
         graph.chat.send(id, current.viewerId, "Ownership details:\nColor: ${current.colorAnswer}\nUnique mark: ${current.markAnswer}\nLast place: ${current.placeAnswer}")
