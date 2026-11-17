@@ -14,7 +14,18 @@ export function messageRecipients(message, thread) {
   if (!message || !safeId(message.id) || message.threadId !== thread?.id ||
       !uids.includes(message.senderUid) || !Array.isArray(message.participantUids) ||
       message.participantUids.length !== 2 || message.participantUids.some((uid, i) => uid !== uids[i])) return [];
-  return uids.filter(uid => uid !== message.senderUid);
+  return liveLocation(message.body) ? [] : uids.filter(uid => uid !== message.senderUid);
+}
+
+// Live fixes already arrive through the foreground Firestore listener; do not alert every 15 seconds.
+function liveLocation(body) {
+  const prefix = 'FindIt meeting location\n';
+  if (typeof body !== 'string' || !body.startsWith(prefix)) return false;
+  const parts = body.slice(prefix.length).split('|');
+  if (parts.length !== 5 || parts[4] !== 'true' || parts.slice(0, 4).some(value => !value.trim())) return false;
+  const [lat, lng, accuracy, time] = parts.slice(0, 4).map(Number);
+  return [lat, lng, accuracy, time].every(Number.isFinite) && lat >= -90 && lat <= 90 &&
+    lng >= -180 && lng <= 180 && accuracy >= 0 && time > 0;
 }
 
 export function handoverRecipients(before, after) {

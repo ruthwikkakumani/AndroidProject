@@ -5,6 +5,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ChatAttachmentTest {
+    @Test fun liveFixesStayQuietButOtherMessagesKeepTheirAlerts() {
+        val pin = com.findit.campus.location.MeetingPin(13.0827, 80.2703, 5f, System.currentTimeMillis(), true)
+        assertFalse(shouldAlertForChat(pin.encode()))
+        assertTrue(shouldAlertForChat(pin.copy(live = false).encode()))
+        assertTrue(shouldAlertForChat("Let's meet now"))
+        assertTrue(shouldAlertForChat(PrivateContact("+91 98765 43210").encode()))
+    }
     @Test fun privateContactRoundTripsAndKeepsSafeDialNumber() {
         val contact = PrivateContact("+91 (98765) 43210", "After class")
         assertEquals(contact, PrivateContact.decode(contact.encode()))

@@ -64,7 +64,7 @@ class ChatRepository(
         val message = MessageEntity(newId(), threadId, senderId, text, photoPath, System.currentTimeMillis())
         chat.insertMessage(message)
         sync.queueMessage(message)
-        notify(if (senderId == thread.ownerId) thread.guestId else thread.ownerId, thread.itemId, threadId,
+        if (shouldAlertForChat(text)) notify(if (senderId == thread.ownerId) thread.guestId else thread.ownerId, thread.itemId, threadId,
             "New message", chatPreview(text).take(100))
     }
 

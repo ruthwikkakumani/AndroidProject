@@ -60,3 +60,6 @@ fun chatPreview(body: String?): String = when {
     MeetingPin.decode(body) != null -> "A meeting location was shared"
     else -> body
 }
+
+/** Foreground live fixes update the meeting map without filling the alerts inbox. */
+fun shouldAlertForChat(body: String): Boolean = MeetingPin.decode(body)?.live != true

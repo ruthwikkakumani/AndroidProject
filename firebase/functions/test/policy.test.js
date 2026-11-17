@@ -36,3 +36,10 @@ test('only terminal invalid-token errors remove device registration', () => {
   assert.equal(invalidToken({ code: 'messaging/registration-token-not-registered' }), true);
   assert.equal(invalidToken({ code: 'messaging/server-unavailable' }), false);
 });
+test('live location fixes stay quiet while static and stopped pins still alert', () => {
+  const body = 'FindIt meeting location\n13.0827|80.2703|5|1794898800000|true';
+  assert.deepEqual(messageRecipients({ ...message, body }, thread), []);
+  assert.deepEqual(messageRecipients({ ...message, body: body.replace('|true', '|false') }, thread), ['owner']);
+  assert.deepEqual(messageRecipients({ ...message, body: body.replace('13.0827', 'NaN') }, thread), ['owner']);
+  assert.deepEqual(messageRecipients({ ...message, body: 'Other message|true' }, thread), ['owner']);
+});

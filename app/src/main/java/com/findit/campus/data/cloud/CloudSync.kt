@@ -257,7 +257,7 @@ class CloudSync(private val cloud: CloudServices, private val db: FindItDatabase
         val isNew = db.chatDao().getMessage(id) == null
         db.chatDao().upsertMessage(MessageEntity(id, d.number("threadId"), d.number("senderId"), d.string("body"),
             d["photoPath"] as? String, d.number("createdAt")))
-        if (isNew && d["senderUid"] != cloud.auth?.currentUser?.uid) {
+        if (isNew && d["senderUid"] != cloud.auth?.currentUser?.uid && com.findit.campus.data.shouldAlertForChat(d.string("body"))) {
             val t = db.chatDao().getThread(d.number("threadId")) ?: return
             val receiverId = if (d["senderUid"] == t.ownerUid) t.guestId else t.ownerId
             notify(receiverId, t.itemId, t.id, "New message", com.findit.campus.data.chatPreview(d.string("body")).take(100))
