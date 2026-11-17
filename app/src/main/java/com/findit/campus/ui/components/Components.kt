@@ -17,15 +17,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.Backpack
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Checkroom
-import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Key
-import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Place
-import androidx.compose.material.icons.outlined.ShoppingBag
-import androidx.compose.material.icons.outlined.Umbrella
-import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material.icons.outlined.Watch
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -64,14 +63,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 fun categoryIcon(name: String): ImageVector = when (name) {
-    "Bottles" -> Icons.Outlined.WaterDrop
-    "Books" -> Icons.Outlined.MenuBook
-    "Electronics" -> Icons.Outlined.Headphones
+    "Bottles" -> FindItIcons.Bottle
+    "Books" -> Icons.AutoMirrored.Outlined.MenuBook
+    "Electronics" -> Icons.Outlined.Devices
     "Clothing" -> Icons.Outlined.Checkroom
     "Keys" -> Icons.Outlined.Key
     "IDs" -> Icons.Outlined.Badge
-    "Accessories" -> Icons.Outlined.Umbrella
-    "Bags" -> Icons.Outlined.ShoppingBag
+    "Accessories" -> Icons.Outlined.Watch
+    "Bags" -> Icons.Outlined.Backpack
     else -> Icons.Outlined.Category
 }
 

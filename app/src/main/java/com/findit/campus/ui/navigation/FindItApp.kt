@@ -30,15 +30,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.Chat
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.outlined.DocumentScanner
-import androidx.compose.material.icons.rounded.Chat
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.automirrored.rounded.Chat
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.rounded.DocumentScanner
-import androidx.compose.material.icons.rounded.Explore
-import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.CircularProgressIndicator
@@ -117,11 +117,11 @@ private data class Tab(
 )
 
 private val tabs = listOf(
-    Tab(Routes.DISCOVER, "Home", Icons.Outlined.Explore, Icons.Rounded.Explore),
+    Tab(Routes.DISCOVER, "Home", Icons.Outlined.Home, Icons.Rounded.Home),
     Tab(Routes.MAP, "Map", Icons.Outlined.Map, Icons.Rounded.Map),
-    Tab(Routes.INBOX, "Messages", Icons.Outlined.Chat, Icons.Rounded.Chat),
+    Tab(Routes.INBOX, "Messages", Icons.AutoMirrored.Outlined.Chat, Icons.AutoMirrored.Rounded.Chat),
     Tab(Routes.SCAN, "Scan", Icons.Outlined.DocumentScanner, Icons.Rounded.DocumentScanner),
-    Tab(Routes.MINE, "Profile", Icons.Outlined.Inventory2, Icons.Rounded.Inventory2),
+    Tab(Routes.MINE, "Profile", Icons.Outlined.PersonOutline, Icons.Rounded.Person),
 )
 
 @Composable
@@ -408,9 +408,7 @@ private fun TabIcon(tab: Tab, route: String, unread: Int) {
     val iconModifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
         .semantics { if (tab.route == Routes.INBOX) stateDescription = "$unread unread alerts" }
     BadgedBox(badge = { if (tab.route == Routes.INBOX && unread > 0) Badge { Text(if (unread > 99) "99+" else unread.toString()) } }) {
-        if (tab.route == Routes.SCAN) Image(painterResource(R.drawable.cutout_40_3f7a586b081d), tab.label,
-            iconModifier.size(24.dp))
-        else Icon(if (selected) tab.selectedIcon else tab.icon, tab.label, iconModifier)
+        Icon(if (selected) tab.selectedIcon else tab.icon, tab.label, iconModifier.size(24.dp))
     }
 }
 
