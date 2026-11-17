@@ -11,6 +11,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import com.findit.campus.BuildConfig
+import com.findit.campus.location.MeetingPin
+import com.findit.campus.ui.map.openWalkingDirections
+import com.findit.campus.ui.permission.*
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.maps.android.compose.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -29,25 +40,44 @@ data class ChatActions(
     val onProof: (android.graphics.Bitmap) -> Unit, val reportError: (String) -> Unit,
     val onColor: (String) -> Unit, val onMark: (String) -> Unit, val onPlace: (String) -> Unit,
     val sendAnswers: () -> Unit, val confirmSide: () -> Unit, val confirmReturn: () -> Unit,
+    val shareLocation: (Boolean) -> Unit = {}, val stopSharing: () -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val model: ChatViewModel = viewModel(); val state by model.uiState.collectAsStateWithLifecycle()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(model, lifecycle) {
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_PAUSE) model.stopSharingLocation() }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer); model.stopSharingLocation() }
+    }
     ChatContent(state, ChatActions(model::onDraft, model::send, model::dismissNotice, model::onProof,
         model::reportError, model::onColor, model::onMark, model::onPlace, model::sendAnswers,
-        model::confirmSide, model::confirmReturn), onBack, modifier)
+        model::confirmSide, model::confirmReturn, model::shareLocation, model::stopSharingLocation), onBack, modifier)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatContent(state: ChatUiState, model: ChatActions, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
+    var locationOpen by remember { mutableStateOf(false) }
+    var locationRequest by remember { mutableStateOf<Boolean?>(null) }
+    var selectedLocationSender by remember { mutableStateOf<Long?>(null) }
+    val (locationGranted, askLocation) = rememberPermissionAsk(LocationPermissions,
+        "Share your current GPS location only with this student. Live sharing stops when you leave this chat.",
+        "Enable location in Settings to share a meeting place.")
+    LaunchedEffect(locationGranted, locationRequest) {
+        if (locationGranted && locationRequest != null) { model.shareLocation(locationRequest!!); locationRequest = null }
+    }
     var checkOpen by rememberSaveable { mutableStateOf(false) }
     var confirm by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(state.messages.size) { if (state.messages.isNotEmpty()) listState.animateScrollToItem(state.messages.size) }
     Scaffold(modifier, topBar = { PageTopBar(state.personName, onBack, actions = {
+        IconButton({ locationOpen = true }, enabled = state.thread != null) {
+            Icon(Icons.Outlined.LocationOn, "Meeting location")
+        }
         IconButton({ checkOpen = true }, enabled = state.thread != null) { Icon(Icons.Outlined.VerifiedUser, "Ownership checks") }
     }) }, bottomBar = {
         if (state.thread != null) Surface(shadowElevation = 3.dp) {
@@ -68,12 +98,21 @@ fun ChatContent(state: ChatUiState, model: ChatActions, onBack: () -> Unit, modi
                     }
                 }
             }
+            if (state.sharingLocation) Surface(color = MaterialTheme.colorScheme.primaryContainer) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Sharing location in this chat", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
+                    TextButton(model.stopSharing) { Text("Stop") }
+                }
+            }
+            state.syncNote?.let { Notice(it, error = true) }
             if (state.loading || state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     TrustNote("Ask about a unique mark, name, or last location. Share evidence privately and meet in a public campus place.")
                 }
-                items(state.messages, key = { it.id }) { message -> MessageBubble(message, message.senderId == state.viewerId) }
+                items(state.messages, key = { it.id }) { message -> MessageBubble(message, message.senderId == state.viewerId,
+                    when { !state.onlineAccount -> "On this phone"; message.id in state.pendingMessageIds -> "Waiting to upload"; else -> "Sent" },
+                    onLocation = { selectedLocationSender = message.senderId }) }
             }
             state.thread?.let { t ->
                 val checked = t.ownerChecked && t.guestChecked
@@ -84,6 +123,21 @@ fun ChatContent(state: ChatUiState, model: ChatActions, onBack: () -> Unit, modi
                 }
             }
         }
+    }
+    if (locationOpen) ModalBottomSheet(onDismissRequest = { locationOpen = false }) {
+        Column(Modifier.padding(24.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Icon(Icons.Outlined.LocationOn, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
+            Text("Meet for a happy return", style = MaterialTheme.typography.headlineSmall)
+            Text("Share a GPS pin privately with ${state.personName}. Choose a public campus meeting place. Accuracy depends on your device and location permission.")
+            Button({ locationOpen = false; locationRequest = false; if (!locationGranted) askLocation() }, Modifier.fillMaxWidth(), enabled = state.onlineAccount) { Text("Share current location") }
+            OutlinedButton({ locationOpen = false; locationRequest = true; if (!locationGranted) askLocation() }, Modifier.fillMaxWidth(), enabled = state.onlineAccount && !state.sharingLocation) { Text("Share live while chatting · 15 min") }
+            if (state.sharingLocation) TextButton({ model.stopSharing(); locationOpen = false }, Modifier.fillMaxWidth()) { Text("Stop sharing") }
+            if (!state.onlineAccount) Text("Connect your account from Home to share with another phone.", color = MaterialTheme.colorScheme.error)
+        }
+    }
+    selectedLocationSender?.let { sender ->
+        val pin = state.messages.asReversed().firstNotNullOfOrNull { if (it.senderId == sender) MeetingPin.decode(it.body) else null }
+        if (pin != null) MeetingLocationSheet(pin, if (sender == state.viewerId) "Your meeting location" else "${state.personName}'s location", { selectedLocationSender = null })
     }
     state.notice?.let { message -> AlertDialog(onDismissRequest = model.dismissNotice, title = { Text("Return conversation") },
         text = { Text(message) }, confirmButton = { TextButton(model.dismissNotice) { Text("Got it") } }) }
@@ -100,15 +154,48 @@ fun ChatContent(state: ChatUiState, model: ChatActions, onBack: () -> Unit, modi
 }
 
 @Composable
-private fun MessageBubble(message: MessageEntity, mine: Boolean) {
+private fun MessageBubble(message: MessageEntity, mine: Boolean, delivery: String, onLocation: () -> Unit) {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
         Surface(Modifier.widthIn(max = 290.dp), shape = MaterialTheme.shapes.medium,
             color = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 message.photoPath?.let { ItemPhoto(it, "shared evidence", "Other", MaterialTheme.colorScheme.tertiary, Modifier.fillMaxWidth().height(170.dp)) }
-                if (message.body.isNotBlank()) Text(message.body, style = MaterialTheme.typography.bodyMedium)
-                Text(Instant.ofEpochMilli(message.createdAt).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm")),
+                val pin = MeetingPin.decode(message.body)
+                if (pin != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Outlined.LocationOn, null, tint = MaterialTheme.colorScheme.primary)
+                        Text(if (pin.live) "Shared location update" else "Meeting location", style = MaterialTheme.typography.titleSmall)
+                    }
+                    Text("GPS accuracy ±${pin.accuracyMeters.toInt()} m", style = MaterialTheme.typography.bodySmall)
+                    TextButton(onLocation) { Text("View map & directions") }
+                } else if (message.body.isNotBlank()) Text(message.body, style = MaterialTheme.typography.bodyMedium)
+                Text(Instant.ofEpochMilli(message.createdAt).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm")) + if (mine) " · $delivery" else "",
                     Modifier.align(Alignment.End), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MeetingLocationSheet(pin: MeetingPin, title: String, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val feedback = LocalFeedback.current
+    val point = LatLng(pin.latitude, pin.longitude)
+    val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(point, 16f) }
+    LaunchedEffect(point) { camera.position = CameraPosition.fromLatLngZoom(point, 16f) }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.padding(20.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text((if (pin.live && pin.recent()) "Recent location update" else "Last shared location") + " · " + formatWhen(pin.capturedAt), style = MaterialTheme.typography.bodyMedium)
+            if (BuildConfig.MAPS_API_KEY.isNotBlank()) GoogleMap(Modifier.fillMaxWidth().height(300.dp), cameraPositionState = camera,
+                uiSettings = MapUiSettings(zoomControlsEnabled = false, mapToolbarEnabled = false)) {
+                Marker(state = rememberUpdatedMarkerState(point), title = title)
+                Circle(center = point, radius = pin.accuracyMeters.toDouble(), fillColor = MaterialTheme.colorScheme.primary.copy(alpha = .1f), strokeColor = MaterialTheme.colorScheme.primary, strokeWidth = 2f)
+            }
+            Text("Accuracy ±${pin.accuracyMeters.toInt()} m. This pin shows the latest location shared in this conversation.", style = MaterialTheme.typography.bodySmall)
+            Button({ if (!openWalkingDirections(context, pin.latitude, pin.longitude)) feedback("Install a maps app or browser to open directions") }, Modifier.fillMaxWidth()) {
+                Icon(Icons.Outlined.Route, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text("Walking directions")
             }
         }
     }

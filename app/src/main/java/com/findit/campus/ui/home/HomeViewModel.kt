@@ -10,6 +10,7 @@ import com.findit.campus.data.FindItLog
 import com.findit.campus.model.ItemType
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -27,6 +28,12 @@ class HomeViewModel(
 ) : AndroidViewModel(app) {
     private val graph = getApplication<FindItApplication>().graph
     private val repository = graph.repository
+
+    val refresh = MutableStateFlow(0)
+    val syncState = graph.sync.status
+    val pending = graph.accounts.observeAccount().flatMapLatest { account ->
+        graph.database.syncDao().observePending(account?.remoteUid.orEmpty())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val query = savedStateHandle.getStateFlow(KEY_QUERY, "")
     private val typeName = savedStateHandle.getStateFlow(KEY_TYPE, "ALL")
@@ -54,7 +61,7 @@ class HomeViewModel(
         )
     }
 
-    val uiState: StateFlow<HomeUiState> = filters.flatMapLatest { filter ->
+    val uiState: StateFlow<HomeUiState> = combine(filters, refresh) { filter, _ -> filter }.flatMapLatest { filter ->
         combine(
             repository.observeSearch(filter.query),
             repository.observeAll(),
@@ -63,10 +70,10 @@ class HomeViewModel(
             buildHomeState(filter, searched, all, graph.matcher, graph.insights).copy(
                 categories = names.ifEmpty { CampusCatalog.categoryNames },
             )
-        }
-    }.catch { error ->
+        }.catch { error ->
         FindItLog.e("Feed failed", error)
-        emit(HomeUiState(loading = false, error = "The board could not be loaded."))
+        emit(HomeUiState(loading = false, error = "The board could not be loaded. Tap Home to retry."))
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     fun onQuery(value: String) {
@@ -87,6 +94,13 @@ class HomeViewModel(
 
     fun select(id: Long) {
         savedStateHandle[KEY_SELECTED] = id
+    }
+
+    fun openHome(type: ItemType = ItemType.LOST) {
+        clearFilters()
+        onType(type)
+        select(-1L)
+        refresh.value += 1
     }
 
     fun clearFilters() {

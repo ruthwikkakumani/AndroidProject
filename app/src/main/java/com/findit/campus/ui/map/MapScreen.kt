@@ -147,11 +147,8 @@ fun MapScreen(state: MapUiState, onFocus: (MapFocus) -> Unit, onType: (ItemType?
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             Button({ onClear(); onOpen(selected.id) }, Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("View report") }
             OutlinedButton({
-                val destination = "${selected.latitude},${selected.longitude}"
-                val uri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$destination&travelmode=walking")
-                try { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
-                catch (_: ActivityNotFoundException) { feedback("Install a maps app or browser to open directions") }
-                catch (_: SecurityException) { feedback("Directions could not be opened on this device") }
+                if (!openWalkingDirections(context, selected.latitude, selected.longitude))
+                    feedback("Install a maps app or browser to open directions")
             }, Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                 Icon(Icons.AutoMirrored.Outlined.DirectionsWalk, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text("Walking directions")
             }

@@ -34,13 +34,17 @@ fun DiscoverScreen(
     displayName: String = "", campusName: String = "", viewerId: Long = 0,
     onFound: (Long) -> Unit = {}, onInbox: () -> Unit = {}, onProfile: () -> Unit = {},
     onPostFound: () -> Unit = {}, modifier: Modifier = Modifier, unreadCount: Int = 0,
+    syncMessage: String? = null, onConnect: (() -> Unit)? = null, scrollRequest: Int = 0,
+    onPostLost: (() -> Unit)? = null,
 ) {
+    val gridState = rememberLazyGridState()
+    LaunchedEffect(scrollRequest) { if (scrollRequest > 0) gridState.animateScrollToItem(0) }
     var filtersOpen by rememberSaveable { mutableStateOf(false) }
     // A null business filter means the default Lost board. The Found tab remains independently searchable.
     val boardType = state.type ?: ItemType.LOST
     val visible = remember(state.items, boardType) { state.items.filter { it.type == boardType } }
     val gutter = if (expanded) 32.dp else 20.dp
-    LazyVerticalGrid(columns = GridCells.Adaptive(158.dp), modifier = modifier.fillMaxSize(),
+    LazyVerticalGrid(state = gridState, columns = GridCells.Adaptive(158.dp), modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = gutter, end = gutter, top = 12.dp, bottom = 100.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -54,6 +58,17 @@ fun DiscoverScreen(
                 IconButton(onClick = onProfile) { Avatar(displayName) }
             }
         }
+        syncMessage?.let { message -> item(span = { GridItemSpan(maxLineSpan) }) {
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.primaryContainer) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(if (onConnect != null) Icons.Outlined.CloudOff else Icons.Outlined.CloudSync, null, Modifier.size(20.dp))
+                        Text(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    }
+                    onConnect?.let { Button(it) { Text("Connect account") } }
+                }
+            }
+        } }
         item(span = { GridItemSpan(maxLineSpan) }) {
             IllustratedHeading("Lost something\non campus?", "A little help can bring it home. Find your things, or make someone's day.", R.drawable.cutout_9_392e3d4c8b06)
         }
@@ -106,9 +121,18 @@ fun DiscoverScreen(
         if (state.loading) item(span = { GridItemSpan(maxLineSpan) }) { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         if (!state.loading && visible.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 EmptyBoard(if (state.query.isNotBlank() || state.category != null) "No matching reports" else "A fresh start for your campus",
-                    if (boardType == ItemType.LOST) "Lost reports appear here. Tap Report to add yours." else "Found something? Post it here so its owner can reach you.")
+                    if (boardType == ItemType.LOST) "Lost reports appear here. Add yours to help someone find it." else "Found something? Post it here so its owner can reach you.")
+                if (boardType == ItemType.LOST) onPostLost?.let { post ->
+                    FilledTonalButton(post, Modifier.fillMaxWidth()) {
+                        Icon(Icons.Outlined.Add, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Report a lost item")
+                    }
+                }
                 if (state.query.isNotBlank() || state.category != null) TextButton(onClick = onClear, Modifier.fillMaxWidth()) { Text("Clear search & filters") }
+                }
             }
         }
         items(visible, key = { it.id }, contentType = { "report" }) { report ->

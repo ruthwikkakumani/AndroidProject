@@ -113,6 +113,19 @@ class SessionViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun connect(password: String, onResult: (String?) -> Unit) {
+        if (busy.value) return
+        viewModelScope.launch {
+            busy.value = true
+            try {
+                val result = accounts.connectCurrentAccount(password)
+                onResult((result as? AuthResult.Rejected)?.message)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { onResult("Could not connect. Please try again.") }
+            finally { busy.value = false }
+        }
+    }
+
     fun logout() {
         viewModelScope.launch { accounts.logout() }
     }

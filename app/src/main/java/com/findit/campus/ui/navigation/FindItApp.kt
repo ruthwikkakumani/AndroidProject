@@ -1,5 +1,7 @@
 package com.findit.campus.ui.navigation
 
+import com.findit.campus.model.ItemType
+
 import android.net.Uri
 import com.findit.campus.notifications.AlertDestination
 import com.findit.campus.ui.components.*
@@ -161,12 +163,18 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
     val notifications by inbox.notifications.collectAsStateWithLifecycle()
     val unread = notifications.count { !it.read }
     val feedback = LocalFeedback.current
+    val homeViewModel: HomeViewModel = viewModel()
+    val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()
+    val sync by homeViewModel.syncState.collectAsStateWithLifecycle()
+    val pending by homeViewModel.pending.collectAsStateWithLifecycle()
+    val scrollRequest by homeViewModel.refresh.collectAsStateWithLifecycle()
+    var connectOpen by remember { mutableStateOf(false) }
+    var connectPassword by remember { mutableStateOf("") }
+    var connectError by remember { mutableStateOf<String?>(null) }
+    val connecting by session.busy.collectAsStateWithLifecycle()
     fun openTab(target: String) {
-        navController.navigate(target) {
-            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-            launchSingleTop = true
-            restoreState = true
-        }
+        if (target == Routes.DISCOVER) homeViewModel.openHome()
+        navController.openCampusTab(target, Routes.DISCOVER)
     }
     LaunchedEffect(alert, signedIn.id) {
         alert?.let { destination ->
@@ -178,7 +186,6 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
         }
     }
     val expanded = widthClass == WindowWidthSizeClass.Expanded
-    val homeViewModel: HomeViewModel = viewModel()
     LaunchedEffect(backStack) {
         val message = backStack?.savedStateHandle?.remove<String>("notice")
         if (!message.isNullOrBlank()) snackbar.showSnackbar(message)
@@ -188,7 +195,8 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
         snackbarHost = { SnackbarHost(snackbar) { FeedbackSnackbar(it) } },
         floatingActionButton = {
             AnimatedVisibility(
-                visible = !wide && (route == Routes.DISCOVER || route == Routes.MINE),
+                visible = !wide && (route == Routes.MINE || (route == Routes.DISCOVER &&
+                    homeState.items.any { it.type == (homeState.type ?: ItemType.LOST) })),
                 enter = scaleIn() + fadeIn(),
                 exit = scaleOut() + fadeOut(),
             ) {
@@ -207,19 +215,7 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
               Surface(Modifier.padding(horizontal = 12.dp).padding(top = 6.dp, bottom = 8.dp).navigationBarsPadding(),
                   shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow,
                   border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f)), shadowElevation = 4.dp) {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow, tonalElevation = 0.dp,
-                    windowInsets = WindowInsets(0, 0, 0, 0), modifier = Modifier.height(80.dp)) {
-                    tabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = route == tab.route || (tab.route == Routes.INBOX && route == Routes.ALERTS),
-                            onClick = { openTab(tab.route) },
-                            icon = {
-                                TabIcon(tab, route, unread)
-                            },
-                            label = { Text(tab.label) },
-                        )
-                    }
-                }
+                CampusNavigationBar(route, unread, ::openTab)
               }
             }
         },
@@ -248,9 +244,9 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
             popExitTransition = { fadeOut(tween(150)) + slideOutHorizontally(tween(200)) { it / 12 } },
         ) {
             composable(Routes.DISCOVER) {
-                val state by homeViewModel.uiState.collectAsStateWithLifecycle()
                 DiscoverScreen(
-                    state = state,
+                    state = homeState,
+                    onPostLost = { navController.navigate(Routes.post()) },
                     expanded = expanded,
                     onQuery = homeViewModel::onQuery,
                     onType = homeViewModel::onType,
@@ -270,8 +266,17 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
                     onFound = { id -> navController.navigate(Routes.chat(id)) },
                     onInbox = { navController.navigate(Routes.ALERTS) },
                     unreadCount = unread,
-                    onProfile = { navController.navigate(Routes.MINE) },
+                    onProfile = { openTab(Routes.MINE) },
                     onPostFound = { navController.navigate(Routes.post(kind = "FOUND")) },
+                    scrollRequest = scrollRequest,
+                    syncMessage = when {
+                        signedIn.remoteUid == null -> "Your account is saved on this phone. Connect to share reports and message other students."
+                        sync.error != null -> sync.error
+                        pending.isNotEmpty() -> "${pending.size} changes waiting to upload. Keep your connection on."
+                        !sync.connected -> "Connecting to your campus… Saved reports remain available."
+                        else -> null
+                    },
+                    onConnect = if (signedIn.remoteUid == null || sync.error?.startsWith("Sign in online") == true) ({ connectOpen = true }) else null,
                 )
             }
             composable(Routes.MAP) {
@@ -344,8 +349,10 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
                 LaunchedEffect(model) {
                     model.eventsFlow.collect { event ->
                         if (event is PostEvent.Saved) {
-                            navController.previousBackStackEntry?.savedStateHandle?.set("notice", "Report posted")
-                            navController.popBackStack()
+                            homeViewModel.openHome(model.uiState.value.form.type)
+                            navController.openCampusTab(Routes.DISCOVER, Routes.DISCOVER)
+                            feedback(if (signedIn.remoteUid == null) "Saved on this phone. Connect your account to share it."
+                                else "Report saved. Uploading to your campus…")
                         }
                     }
                 }
@@ -397,6 +404,40 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
         }
             }
         }
+        }
+    }
+    if (connectOpen) AlertDialog(onDismissRequest = { if (!connecting) { connectOpen = false; connectPassword = "" } },
+        title = { Text("Connect to your campus") }, text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Use the password for ${signedIn.email}. Your saved reports and conversations stay with your account.")
+                OutlinedTextField(connectPassword, { connectPassword = it }, label = { Text("Account password") },
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(), singleLine = true, enabled = !connecting)
+                connectError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                if (connecting) LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+        }, confirmButton = { TextButton({ session.connect(connectPassword) { error ->
+            connectError = error
+            if (error == null) { connectOpen = false; connectPassword = ""; homeViewModel.openHome(); feedback("Connected. Your reports are uploading to campus.") }
+        } }, enabled = connectPassword.isNotBlank() && !connecting) { Text("Connect") } },
+        dismissButton = { TextButton({ connectOpen = false; connectPassword = "" }, enabled = !connecting) { Text("Later") } })
+}
+
+internal fun androidx.navigation.NavHostController.openCampusTab(target: String, home: String) {
+    if (target == home && popBackStack(home, false)) return
+    navigate(target) {
+        popUpTo(graph.findStartDestination().id) { saveState = target != home }
+        launchSingleTop = true
+        restoreState = target != home
+    }
+}
+
+@Composable
+internal fun CampusNavigationBar(route: String, unread: Int = 0, onTab: (String) -> Unit) {
+    NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow, tonalElevation = 0.dp,
+        windowInsets = WindowInsets(0, 0, 0, 0), modifier = Modifier.height(80.dp)) {
+        tabs.forEach { tab ->
+            NavigationBarItem(selected = route == tab.route || (tab.route == Routes.INBOX && route == Routes.ALERTS),
+                onClick = { onTab(tab.route) }, icon = { TabIcon(tab, route, unread) }, label = { Text(tab.label) })
         }
     }
 }

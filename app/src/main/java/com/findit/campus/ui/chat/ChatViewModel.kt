@@ -8,6 +8,9 @@ import androidx.lifecycle.viewModelScope
 import com.findit.campus.FindItApplication
 import com.findit.campus.data.local.*
 import com.findit.campus.model.Item
+import com.findit.campus.location.MeetingPin
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.withTimeoutOrNull
 import com.findit.campus.data.scaleDown
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,6 +23,8 @@ data class ChatUiState(
     val thread: ThreadEntity? = null, val item: Item? = null, val personName: String = "Campus student",
     val messages: List<MessageEntity> = emptyList(), val draft: String = "",
     val colorAnswer: String = "", val markAnswer: String = "", val placeAnswer: String = "",
+    val pendingMessageIds: Set<Long> = emptySet(), val onlineAccount: Boolean = false, val sharingLocation: Boolean = false,
+    val syncNote: String? = null,
     val busy: Boolean = false, val notice: String? = null, val viewerId: Long = 0, val loading: Boolean = true,
 )
 
@@ -27,17 +32,27 @@ class ChatViewModel(app: Application, private val savedStateHandle: SavedStateHa
     private val graph = getApplication<FindItApplication>().graph
     private val state = MutableStateFlow(ChatUiState(draft = savedStateHandle["draft"] ?: ""))
     val uiState: StateFlow<ChatUiState> = state
+    private var sharingJob: Job? = null
+    private var sharingGeneration = 0L
     init {
         viewModelScope.launch {
             try {
                 val account = graph.accounts.observeAccount().first() ?: error("Sign in to open this conversation.")
-                state.update { it.copy(viewerId = account.id) }
+                state.update { it.copy(viewerId = account.id, onlineAccount = account.remoteUid != null) }
                 val threadId = savedStateHandle.get<Long>("threadId") ?: graph.chat.open(savedStateHandle.get<Long>("itemId") ?: -1, account.id)
                     ?: error("Choose a student's conversation from Messages.")
                 val thread = graph.database.chatDao().getThread(threadId) ?: error("This conversation is unavailable.")
                 require(account.id == thread.ownerId || account.id == thread.guestId) { "This is a private conversation." }
                 val peer = graph.database.accountDao().getById(if (account.id == thread.ownerId) thread.guestId else thread.ownerId)
                 state.update { it.copy(thread = thread, personName = peer?.displayName ?: "Campus student", loading = false) }
+                launch {
+                    graph.database.accountDao().observeById(if (account.id == thread.ownerId) thread.guestId else thread.ownerId)
+                        .collect { peer -> state.update { it.copy(personName = peer?.displayName ?: "Campus student") } }
+                }
+                launch { graph.database.syncDao().observePending(account.remoteUid.orEmpty()).collect { writes ->
+                    state.update { it.copy(pendingMessageIds = writes.filter { w -> w.collection == "messages" }.mapNotNull { w -> w.documentId.toLongOrNull() }.toSet()) }
+                } }
+                launch { graph.sync.status.collect { sync -> state.update { it.copy(syncNote = sync.error) } } }
                 launch { graph.repository.observeItem(thread.itemId).collect { item -> state.update { it.copy(item = item) } } }
                 launch { graph.chat.observeThread(threadId).collect { t -> state.update { it.copy(thread = t) } } }
                 launch {
@@ -67,6 +82,42 @@ class ChatViewModel(app: Application, private val savedStateHandle: SavedStateHa
             finally { state.update { it.copy(busy = false) } }
         }
     }
+    fun stopSharingLocation() {
+        sharingGeneration++
+        sharingJob?.cancel(); sharingJob = null
+        state.update { it.copy(sharingLocation = false) }
+    }
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
+    fun shareLocation(live: Boolean) {
+        if (sharingJob?.isActive == true || state.value.thread == null) return
+        val generation = ++sharingGeneration
+        sharingJob = viewModelScope.launch {
+            try {
+                val current = state.value
+                val id = current.thread!!.id
+                require(current.onlineAccount) { "Connect your account from Home before sharing a meeting location." }
+                val fix = graph.location.current() ?: error("No fresh GPS position. Enable location and try again outdoors.")
+                graph.chat.send(id, current.viewerId, MeetingPin(fix.latitude, fix.longitude, fix.accuracyMeters, fix.capturedAtMillis, live).encode())
+                state.update { it.copy(sharingLocation = live, notice = if (live) "Sharing while this chat is open, for up to 15 minutes. Tap Stop or leave the chat to end sharing."
+                    else "Meeting location saved. It will reach this student when uploaded.") }
+                if (live) withTimeoutOrNull(15 * 60_000L) {
+                    graph.location.updates().sample(15_000).collect { next ->
+                        require(graph.location.hasPermission()) { "Location permission was removed." }
+                        if (MeetingPin(next.latitude, next.longitude, next.accuracyMeters, next.capturedAtMillis).recent())
+                            graph.chat.send(id, current.viewerId, MeetingPin(next.latitude, next.longitude, next.accuracyMeters, next.capturedAtMillis, true).encode())
+                    }
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { reportError(error.message ?: "Location could not be shared.") }
+            finally {
+                if (generation == sharingGeneration) {
+                    state.update { it.copy(sharingLocation = false) }
+                    sharingJob = null
+                }
+            }
+        }
+    }
+
     fun send() = action { current, id -> graph.chat.send(id, current.viewerId, current.draft); onDraft("") }
     fun sendAnswers() = action { current, id ->
         require(current.colorAnswer.isNotBlank() && current.markAnswer.isNotBlank() && current.placeAnswer.isNotBlank()) { "Answer all three questions before sharing." }
