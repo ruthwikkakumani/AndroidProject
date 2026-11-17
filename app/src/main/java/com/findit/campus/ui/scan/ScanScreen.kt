@@ -20,28 +20,37 @@ fun ScanScreen(state: ScanUiState, onText: (String) -> Unit, onPhoto: (Bitmap) -
     var photoError by remember { mutableStateOf<String?>(null) }
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp, 16.dp, 20.dp, 24.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        item { IllustratedHeading("A clue in\nevery label.", "Read writing from an item and search campus reports.", R.drawable.art_report) }
+        item { IllustratedHeading("Every photo\nholds a clue.", "Recognize objects, read labels and search campus reports.", R.drawable.art_report) }
         item { FormCard {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(Icons.Outlined.DocumentScanner, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
-                Column { Text("AI text scanner", style = MaterialTheme.typography.titleMedium)
+                Column { Text("AI photo scanner", style = MaterialTheme.typography.titleMedium)
                     Text("Works on your device, even offline", style = MaterialTheme.typography.bodySmall) }
             }
-            Text("Photograph a notebook name, a label or an identifying note. Keep the writing clear and well lit.", style = MaterialTheme.typography.bodyMedium)
+            Text("Take a clear photo of the item or its label. AI suggests object clues and reads visible writing.", style = MaterialTheme.typography.bodyMedium)
             PhotoActions(onPhoto = { photoError = null; onPhoto(it) }, onError = { photoError = it }, enabled = !state.busy)
-            if (state.busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Reading the writing…") }
+            if (state.busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Finding objects and reading labels…") }
+            if (state.objects.isNotEmpty()) {
+                Text("AI object clues · tap to search", style = MaterialTheme.typography.labelLarge)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    state.objects.forEach { clue -> FilterChip(selected = state.text == clue,
+                        onClick = { onText(clue) }, label = { Text(clue) }, enabled = !state.busy) }
+                }
+                Text("Suggestions can be mistaken. Check the item and edit your clues.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         } }
-        (photoError ?: state.message)?.let { note -> item { Notice(note, error = true) } }
+        (photoError ?: state.message)?.let { note -> item { Notice(note, error = photoError != null || state.messageIsError) } }
         item { FormCard {
-            Text("Writing from the item", style = MaterialTheme.typography.titleMedium)
+            Text("Clues from your photo", style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(state.text, { photoError = null; onText(it) }, Modifier.fillMaxWidth(),
                 placeholder = { Text("Read a photo, or type a clue…") }, minLines = 3, maxLines = 6, enabled = !state.busy)
             Text("Review the text before using it. Avoid sharing private ID numbers publicly.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button({ onUseText(state.text) }, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = state.text.isNotBlank() && !state.busy) { Text("Use in a lost report") }
         } }
         item { Text("Reports with similar clues", style = MaterialTheme.typography.titleLarge) }
-        if (state.hits.isEmpty()) item { EmptyBoard(if (state.text.length < 2) "Follow the little clues" else "No matching writing yet",
-            if (state.text.length < 2) "Scan or type a name to search the campus board." else "Try a shorter name, or check another label.") }
+        if (state.hits.isEmpty()) item { EmptyBoard(if (state.text.length < 2) "Follow the little clues" else "No matching reports yet",
+            if (state.text.length < 2) "Scan a photo or type a clue to search the campus board." else "Try another object clue or a shorter name.") }
         items(state.hits, key = { it.item.id }) { hit -> ItemCard(hit.item, 0, { onOpen(hit.item.id) }, modifier = Modifier.animateItem()) }
     }
 }

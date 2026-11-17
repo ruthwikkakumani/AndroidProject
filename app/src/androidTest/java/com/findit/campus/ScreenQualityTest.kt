@@ -165,13 +165,16 @@ class ScreenQualityTest {
         var scanned: String? = null
         rule.setContent { FindItTheme { Surface(Modifier.fillMaxSize()) { when(page) {
             0 -> DetailScreen(DetailUiState(item = sample(ItemType.LOST)), {}, {}, {}, {}, viewerId = 99, onReachOut = {})
-            1 -> ScanScreen(ScanUiState(text = draft), { draft = it }, { it.recycle() }, {}, { scanned = it })
+            1 -> ScanScreen(ScanUiState(text = draft, objects = listOf("bottle", "bag")), { draft = it }, { it.recycle() }, {}, { scanned = it })
             2 -> MineScreen(MineUiState(listOf(sample(ItemType.LOST)), false), {}, "Test Student", "Test Campus")
             else -> MapScreen(MapUiState(), {}, {}, {}, {}, {}, {}, {})
         } } } }
         capture("detail")
         rule.runOnIdle { page = 1 }
         capture("scan")
+        rule.onNodeWithText("bottle").performScrollTo().performClick()
+        rule.runOnIdle { assertEquals("bottle", draft) }
+        rule.onNode(hasSetTextAction()).performTextClearance()
         rule.onNode(hasSetTextAction()).performScrollTo().performTextInput("Notebook name")
         rule.onNodeWithText("Use in a lost report").performScrollTo().performClick()
         rule.runOnIdle { assertEquals("Notebook name", scanned); page = 2 }

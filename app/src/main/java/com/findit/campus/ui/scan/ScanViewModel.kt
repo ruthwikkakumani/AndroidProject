@@ -31,6 +31,8 @@ data class ScanUiState(
     val hits: List<MatchPreview> = emptyList(),
     val busy: Boolean = false,
     val message: String? = null,
+    val objects: List<String> = emptyList(),
+    val messageIsError: Boolean = false,
 )
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
@@ -40,6 +42,8 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     private val text = MutableStateFlow("")
     private val busy = MutableStateFlow(false)
     private val message = MutableStateFlow<String?>(null)
+    private val objects = MutableStateFlow(emptyList<String>())
+    private val messageIsError = MutableStateFlow(false)
 
     private val hits: StateFlow<List<MatchPreview>> = text
         .debounce(200)
@@ -59,8 +63,12 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val uiState: StateFlow<ScanUiState> = kotlinx.coroutines.flow.combine(text, hits, busy, message) { value, found, working, note ->
-        ScanUiState(text = value, hits = found, busy = working, message = note)
+    private val feedback = kotlinx.coroutines.flow.combine(message, objects, messageIsError) { note, clues, error ->
+        Triple(note, clues, error)
+    }
+    val uiState: StateFlow<ScanUiState> = kotlinx.coroutines.flow.combine(text, hits, busy, feedback) { value, found, working, feedback ->
+        ScanUiState(text = value, hits = found, busy = working, message = feedback.first,
+            objects = feedback.second, messageIsError = feedback.third)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ScanUiState())
 
     fun onText(value: String) {
@@ -73,21 +81,30 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             busy.value = true
             message.value = null
+            objects.value = emptyList()
+            messageIsError.value = false
             var scaled: Bitmap? = null
             try {
                 scaled = withContext(Dispatchers.Default) { scaleDown(bitmap, 1600) }
-                val value = graph.scanner.read(scaled)
-                if (value.isBlank()) {
-                    message.value = "No writing turned up. Move closer and try again."
+                val clues = graph.checker.scan(scaled)
+                objects.value = clues.objects
+                if (clues.text.isNotBlank()) {
+                    text.value = clues.text.take(500)
+                    message.value = "Photo scanned. Review the writing or tap an object clue to search."
+                } else if (clues.objects.isNotEmpty()) {
+                    text.value = clues.objects.first()
+                    message.value = "No writing visible; AI found object clues instead. Tap a clue to search."
                 } else {
-                    text.value = value.take(500)
+                    message.value = "No clear clues detected. Try a closer, well-lit photo or type a description."
                 }
             } catch (error: TimeoutCancellationException) {
-                message.value = "Reading that photo took too long."
+                messageIsError.value = true
+                message.value = "Scanning took too long. Try a smaller, clearer photo."
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 FindItLog.e("Scan failed", error)
-                message.value = "Could not read that photo."
+                messageIsError.value = true
+                message.value = "Could not scan this photo. Try another photo, or type a clue below."
             } finally {
                 if (scaled !== bitmap) scaled?.recycle()
                 bitmap.recycle()

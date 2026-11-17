@@ -14,6 +14,7 @@ import com.findit.campus.data.cloud.stableId
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -175,7 +176,10 @@ class AccountRepository(private val database: FindItDatabase, private val cloud:
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (error: Exception) {
             FindItLog.e("Google sign-in failed", error)
-            GoogleAuthResult.Rejected("Google sign-in failed. Check your connection and Firebase Google provider setup.")
+            GoogleAuthResult.Rejected(if (error is FirebaseFirestoreException &&
+                error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED)
+                "Google verified your account, but campus services denied access. Ask for the Firebase rules to be deployed, then retry."
+                else "Google sign-in failed. Check your connection and Firebase Google provider setup.")
         }
     }
 

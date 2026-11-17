@@ -15,17 +15,28 @@ import kotlinx.coroutines.withTimeout
 class PhotoCheckEngine(private val scanner: TextScanner) {
     private val labeler = ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
 
+    data class ScanClues(val text: String, val objects: List<String>)
+
+    /** Both models are bundled, so a plain object can supply clues without any visible writing. */
+    suspend fun scan(bitmap: Bitmap): ScanClues = withContext(Dispatchers.Default) {
+        withTimeout(30_000) {
+            coroutineScope {
+                val writing = async { scanner.read(bitmap) }
+                val objects = async { meaningfulLabels(bitmap).take(5) }
+                ScanClues(writing.await(), objects.await())
+            }
+        }
+    }
+
     suspend fun compare(reference: Bitmap, proof: Bitmap): ImageVerdict = withContext(Dispatchers.Default) {
         withTimeout(30_000) {
             coroutineScope {
-                val left = async { labels(reference) }
-                val right = async { labels(proof) }
+                val left = async { meaningfulLabels(reference) }
+                val right = async { meaningfulLabels(proof) }
                 val textLeft = async { scanner.read(reference) }
                 val textRight = async { scanner.read(proof) }
                 val visual = compareBitmaps(reference, proof)
-                val leftLabels = left.await().filter { it.confidence >= 0.65f }.map { it.text.lowercase() }.toSet()
-                val rightLabels = right.await().filter { it.confidence >= 0.65f }.map { it.text.lowercase() }.toSet()
-                val common = leftLabels.intersect(rightLabels) - setOf("product", "material", "pattern", "font", "art")
+                val common = left.await().toSet().intersect(right.await().toSet())
                 val aText = textLeft.await().lowercase().split(Regex("\\W+")).filter { it.length >= 3 }.toSet()
                 val bText = textRight.await().lowercase().split(Regex("\\W+")).filter { it.length >= 3 }.toSet()
                 val commonText = aText.intersect(bText)
@@ -40,6 +51,13 @@ class PhotoCheckEngine(private val scanner: TextScanner) {
             }
         }
     }
+
+    private suspend fun meaningfulLabels(bitmap: Bitmap): List<String> = labels(bitmap)
+        .filter { it.confidence >= 0.65f }
+        .sortedByDescending { it.confidence }
+        .map { it.text.lowercase(java.util.Locale.ROOT) }
+        .distinct()
+        .filterNot { it in setOf("product", "material", "pattern", "font", "art") }
 
     private suspend fun labels(bitmap: Bitmap): List<com.google.mlkit.vision.label.ImageLabel> {
         val input = bitmap.copy(Bitmap.Config.ARGB_8888, false)
