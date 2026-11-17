@@ -4,7 +4,7 @@ Open this project folder in Android Studio, let Gradle sync, then select the `ap
 
 ## What works before service setup
 
-Accounts, reports, search, private conversations between accounts on the same installation, ownership checks, camera capture, gallery import, GPS tagging, and bundled on-device OCR/image labeling work locally. Data stays in Room and survives restarts. Students on **different phones** need the Firebase setup below. A live Google map needs the Maps key; GPS coordinates and accuracy work without it.
+Accounts, reports, search, private conversations between accounts on the same installation, ownership checks, camera capture, gallery import, GPS tagging, and bundled on-device OCR/image labeling work locally. Data stays in Room and survives restarts. Signup includes 100 editable Indian college/campus suggestions. Android notifications can be enabled from Profile; replies also remain available in Messages. Students on **different phones** need the Firebase setup below. A live Google map needs the Maps key; GPS coordinates and accuracy work without it.
 
 ## Firebase: shared campus accounts, reports, photos, and messages
 
@@ -28,7 +28,24 @@ Accounts, reports, search, private conversations between accounts on the same in
 
 Public campus reports exclude private answers, contact details, and password hashes. Proof photos and messages are restricted to the two conversation participants. The supplied rules prevent a student from confirming the other person's side. Image evidence cannot prove ownership; participants must compare private details and inspect the physical item.
 
-Room saves changes before uploading. Pending writes retry after connectivity returns; each account's writes remain associated with their original author. In-app unread alerts arrive while campus services are connected and are available on the next sync. This project does not send background push notifications to a terminated app. Campus membership is self-declared at signup; an institution-wide deployment needs an administrator-controlled student membership process.
+Room saves changes before uploading. Pending writes retry after connectivity returns; each account's writes remain associated with their original author. Unread alerts arrive while campus services are connected and are available on the next sync. Enable Android notifications from Profile to receive private reply and return notifications while the app process is running; tapping an alert opens its conversation or report for the correct signed-in account. This project does not send background push notifications to a terminated app. Campus membership is self-declared at signup; an institution-wide deployment needs an administrator-controlled student membership process.
+
+## Google sign-in (OAuth)
+
+Email/password remains available. Google sign-in uses Android Credential Manager and Firebase Authentication; there is no client secret or AI API required.
+
+1. Complete Firebase setup above. In Firebase **Authentication → Sign-in method**, enable **Google** and choose a support email.
+2. In **Project settings → Your apps**, add the debug signing SHA-1 from `./gradlew signingReport`. Enable Google before downloading an updated Android configuration.
+3. Copy the **Web client ID** from the Google provider settings, or `client → oauth_client` with `client_type: 3` in the updated `google-services.json`. Use the web client ID, not the Android client ID.
+4. Add it to ignored `local.properties` and rebuild:
+
+   ```properties
+   GOOGLE_WEB_CLIENT_ID=your web OAuth client ID
+   ```
+
+5. Use a device/emulator with Google Play services and a Google account. Open Create account or Login and tap **Continue with Google**. A new Google user chooses their name and college before joining; an existing user opens their saved campus dashboard. OAuth tokens are not stored as Room passwords. Canceling the Google chooser leaves the current screen open.
+
+All six service values (the four Firebase values, Maps key, and web OAuth client ID) are optional for the local demo. They are configuration identifiers supplied by your own projects; do not invent them. No `.env` file is used. Live OAuth, Maps, and cross-device sync cannot be verified until these are configured.
 
 ## Google Maps SDK key
 
