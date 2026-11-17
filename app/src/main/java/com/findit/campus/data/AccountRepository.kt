@@ -17,6 +17,8 @@ import com.google.firebase.firestore.DocumentSnapshot
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.first
 import java.util.Base64
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -107,6 +109,9 @@ class AccountRepository(private val database: FindItDatabase, private val cloud:
         if (!isValidEmail(email) || password.isEmpty()) {
             return AuthResult.Rejected("Enter the email and password for your account.")
         }
+        val saved = accounts.findByEmail(email.trim().lowercase(Locale.ROOT))
+        // Connecting Firebase must not lock students out of their existing local demo accounts.
+        if (saved != null && saved.remoteUid == null) return loginSavedAccount(saved, password)
         if (cloud.configured) {
             try {
                 val user = cloud.auth!!.signInWithEmailAndPassword(email.trim(), password).awaitResult().user
@@ -127,8 +132,11 @@ class AccountRepository(private val database: FindItDatabase, private val cloud:
                 return AuthResult.Rejected("Sign-in failed. Check your email, password, connection, and Firebase setup.")
             }
         }
-        val entity = accounts.findByEmail(email.trim().lowercase())
-            ?: return AuthResult.Rejected("Those details do not match an account.")
+        return saved?.let { loginSavedAccount(it, password) }
+            ?: AuthResult.Rejected("Those details do not match an account.")
+    }
+
+    private suspend fun loginSavedAccount(entity: AccountEntity, password: String): AuthResult {
         if (entity.passwordHash.isBlank()) return AuthResult.Rejected("Use Google sign-in for this account.")
         if (!withContext(Dispatchers.Default) { PasswordHasher.verify(password, entity.passwordSalt, entity.passwordHash) }) {
             return AuthResult.Rejected("Those details do not match an account.")
@@ -138,6 +146,12 @@ class AccountRepository(private val database: FindItDatabase, private val cloud:
     }
 
     suspend fun logout() {
+        val uid = observeAccount().first()?.remoteUid
+        if (uid != null) withTimeoutOrNull(3_000) {
+            try { cloud.unregisterPushToken(uid) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { FindItLog.e("Could not unregister this device", error) }
+        }
         accounts.clearSession()
         cloud.auth?.signOut()
     }

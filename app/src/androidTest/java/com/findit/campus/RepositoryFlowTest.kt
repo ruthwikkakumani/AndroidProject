@@ -72,6 +72,19 @@ class RepositoryFlowTest {
         } finally { saved.close(); context.deleteDatabase(name) }
     }
 
+    @Test fun connectingFirebasePreservesLocalAccountLoginWithoutConvertingItsIdentity() = runBlocking {
+        assertTrue(accounts.register("Local student", "local@example.edu", "Secret123!", "Secret123!", "Test Campus") is AuthResult.Created)
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val connectedCloud = CloudServices(context)
+        org.junit.Assume.assumeTrue(connectedCloud.configured)
+        val connectedAccounts = AccountRepository(db, connectedCloud)
+        assertTrue(connectedAccounts.login("local@example.edu", "wrong-password") is AuthResult.Rejected)
+        assertNull(connectedAccounts.observeAccount().first())
+        val result = connectedAccounts.login("local@example.edu", "Secret123!") as AuthResult.SignedIn
+        assertNull(result.account.remoteUid)
+        assertEquals(result.account.id, connectedAccounts.observeAccount().first()?.id)
+    }
+
     @Test fun accountCreationRequiresLoginAndCampusBoardIsPrivate() = runBlocking {
         val owner = student("owner")
         val lostId = items.add(report(ItemType.LOST), owner)

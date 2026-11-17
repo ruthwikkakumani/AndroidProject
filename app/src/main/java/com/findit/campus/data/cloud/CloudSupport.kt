@@ -12,6 +12,7 @@ import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Locale
+import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -30,25 +31,43 @@ suspend fun <T> Task<T>.awaitResult(): T = suspendCancellableCoroutine { continu
     addOnCanceledListener { continuation.cancel() }
 }
 
-/** Configuration is read from ignored local.properties, never baked into source. */
+/** Configuration comes from ignored google-services.json or local.properties. */
 class CloudServices(context: Context, enabled: Boolean = true) {
+    private val installationId: String by lazy {
+        val preferences = context.getSharedPreferences("push_installation", Context.MODE_PRIVATE)
+        preferences.getString("id", null) ?: UUID.randomUUID().toString().also {
+            preferences.edit().putString("id", it).apply()
+        }
+    }
     private val app: FirebaseApp? = if (
         enabled && BuildConfig.FIREBASE_APPLICATION_ID.isNotBlank() &&
         BuildConfig.FIREBASE_API_KEY.isNotBlank() &&
         BuildConfig.FIREBASE_PROJECT_ID.isNotBlank() &&
         BuildConfig.FIREBASE_STORAGE_BUCKET.isNotBlank()
     ) {
-        FirebaseApp.getApps(context).firstOrNull { it.name == "FindIt" }
+        FirebaseApp.getApps(context).firstOrNull { it.name == FirebaseApp.DEFAULT_APP_NAME }
             ?: FirebaseApp.initializeApp(context, FirebaseOptions.Builder()
             .setApplicationId(BuildConfig.FIREBASE_APPLICATION_ID)
             .setApiKey(BuildConfig.FIREBASE_API_KEY)
             .setProjectId(BuildConfig.FIREBASE_PROJECT_ID)
             .setStorageBucket(BuildConfig.FIREBASE_STORAGE_BUCKET)
-            .build(), "FindIt")
+            .apply { if (BuildConfig.FIREBASE_MESSAGING_SENDER_ID.isNotBlank()) setGcmSenderId(BuildConfig.FIREBASE_MESSAGING_SENDER_ID) }
+            .build())
     } else null
 
     val configured: Boolean get() = app != null
     val auth: FirebaseAuth? = app?.let(FirebaseAuth::getInstance)
     val store: FirebaseFirestore? = app?.let(FirebaseFirestore::getInstance)
     val storage: FirebaseStorage? = app?.let(FirebaseStorage::getInstance)
+
+    suspend fun registerPushToken(uid: String, token: String) {
+        if (auth?.currentUser?.uid != uid || token.isBlank()) return
+        store?.collection("profiles")?.document(uid)?.collection("devices")?.document(installationId)
+            ?.set(mapOf("token" to token, "updatedAt" to System.currentTimeMillis()))?.awaitResult()
+    }
+
+    suspend fun unregisterPushToken(uid: String) {
+        if (auth?.currentUser?.uid != uid) return
+        store?.collection("profiles")?.document(uid)?.collection("devices")?.document(installationId)?.delete()?.awaitResult()
+    }
 }

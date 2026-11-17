@@ -31,6 +31,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:theme="@style/Theme.FindIt.Starting"
             android:launchMode="singleTop"
             android:exported="true"
             android:windowSoftInputMode="adjustResize">
@@ -39,5 +40,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service android:name=".notifications.FindItMessagingService" android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

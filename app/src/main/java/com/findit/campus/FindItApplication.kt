@@ -1,6 +1,7 @@
 package com.findit.campus
 
 import com.findit.campus.notifications.CampusNotifications
+import com.findit.campus.notifications.PushRegistration
 import android.app.Application
 import android.util.Log
 import com.findit.campus.ai.InsightEngine
@@ -58,6 +59,7 @@ class FindItApplication : Application() {
         graph = AppGraph(this)
         graph.sync.start(scope, graph.accounts)
         CampusNotifications(this, graph.accounts).start(scope)
+        PushRegistration(graph.cloud, graph.accounts).start(scope)
         scope.launch {
             runCatching { graph.repository.ensureCategories() }
                 .onFailure { FindItLog.e("Could not prepare the campus board", it) }

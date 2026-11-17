@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,24c-11.2,0 -20.2,8.8 -20.2,20.4 0,15.2 20.2,39.6 20.2,39.6s20.2,-24.4 20.2,-39.6C74.2,32.8 65.2,24 54,24zM54,52.2c-4.3,0 -7.8,-3.5 -7.8,-7.8s3.5,-7.8 7.8,-7.8 7.8,3.5 7.8,7.8 -3.5,7.8 -7.8,7.8z" />
-</vector>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item><bitmap android:src="@drawable/findit_launcher_art" android:gravity="center" /></item>
+</layer-list>

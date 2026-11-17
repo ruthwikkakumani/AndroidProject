@@ -15,3 +15,8 @@ output-metadata.json
 /app/google-services.json
 /.design/
 /.kotlin/
+**/node_modules/
+firebase-debug.log*
+firestore-debug.log*
+*.jks
+*.keystore

@@ -10,6 +10,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import com.findit.campus.ui.navigation.FindItApp
 import com.findit.campus.ui.theme.FindItTheme
@@ -25,6 +26,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         alert.value = CampusNotifications.destination(intent)
         enableEdgeToEdge()

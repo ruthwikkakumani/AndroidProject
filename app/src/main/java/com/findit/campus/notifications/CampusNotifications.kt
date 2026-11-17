@@ -24,15 +24,11 @@ class CampusNotifications(private val context: Context, private val accounts: Ac
     private val displayed = mutableMapOf<Long, Int>()
 
     fun start(scope: CoroutineScope) {
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL, "Campus replies & returns", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Private replies, found-item requests and handover updates"
-                lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
-            },
-        )
+        createChannel()
         scope.launch {
             accounts.observeAccount().distinctUntilChangedBy { it?.id }.collectLatest { account ->
-                displayed.values.forEach(manager::cancel)
+                // Includes pushes displayed by the service while the process was stopped.
+                manager.cancelAll()
                 displayed.clear()
                 policy.newUnread(account?.id, emptyList())
                 if (account != null) accounts.observeNotifications(account.id).collect { rows ->
@@ -42,7 +38,7 @@ class CampusNotifications(private val context: Context, private val accounts: Ac
                     }
                     if (manager.areNotificationsEnabled()) {
                         policy.newUnread(account.id, rows).take(5).forEach { row ->
-                            val id = (row.id xor (row.id ushr 32)).toInt()
+                            val id = notificationId(row.id)
                             try {
                                 manager.notify(id, notification(row))
                                 displayed[row.id] = id
@@ -52,6 +48,24 @@ class CampusNotifications(private val context: Context, private val accounts: Ac
                 }
             }
         }
+    }
+
+    fun showRemote(row: NotificationEntity) {
+        createChannel()
+        if (!manager.areNotificationsEnabled()) return
+        try { manager.notify(notificationId(row.id), notification(row)) }
+        catch (_: SecurityException) { /* Respect a permission revoked during delivery. */ }
+    }
+
+    private fun notificationId(id: Long) = (id xor (id ushr 32)).toInt()
+
+    private fun createChannel() {
+        context.getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(CHANNEL, "Campus replies & returns", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "Private replies, found-item requests and handover updates"
+                lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
+            },
+        )
     }
 
     internal fun intentFor(row: NotificationEntity): Intent = Intent(context, MainActivity::class.java).apply {

@@ -1,4 +1,5 @@
 import java.util.Properties
+import groovy.json.JsonSlurper
 
 plugins {
     alias(libs.plugins.android.application)
@@ -13,6 +14,27 @@ val localProperties = Properties().apply {
     }
 }
 val mapsApiKey = localProperties.getProperty("MAPS_API_KEY", "")
+// Firebase's downloaded Android configuration is ignored by Git. Match this app's
+// client rather than accidentally using another Android app in the same project.
+val firebaseFile = file("google-services.json")
+val firebaseJson = if (firebaseFile.exists()) JsonSlurper().parse(firebaseFile) as Map<*, *> else emptyMap<Any, Any>()
+val firebaseProject = firebaseJson["project_info"] as? Map<*, *> ?: emptyMap<Any, Any>()
+val firebaseClient = (firebaseJson["client"] as? List<*>)?.filterIsInstance<Map<*, *>>()?.firstOrNull { client ->
+    val info = client["client_info"] as? Map<*, *>
+    (info?.get("android_client_info") as? Map<*, *>)?.get("package_name") == "com.findit.campus"
+}
+if (firebaseFile.exists()) require(firebaseClient != null) { "google-services.json must include Android package com.findit.campus." }
+val firebaseDefaults = mapOf(
+    "FIREBASE_APPLICATION_ID" to (firebaseClient?.get("client_info") as? Map<*, *>)?.get("mobilesdk_app_id"),
+    "FIREBASE_API_KEY" to ((firebaseClient?.get("api_key") as? List<*>)?.firstOrNull() as? Map<*, *>)?.get("current_key"),
+    "FIREBASE_PROJECT_ID" to firebaseProject["project_id"],
+    "FIREBASE_STORAGE_BUCKET" to firebaseProject["storage_bucket"],
+    "FIREBASE_MESSAGING_SENDER_ID" to firebaseProject["project_number"],
+    "GOOGLE_WEB_CLIENT_ID" to (firebaseClient?.get("oauth_client") as? List<*>)?.filterIsInstance<Map<*, *>>()
+        ?.firstOrNull { (it["client_type"] as? Number)?.toInt() == 3 }?.get("client_id"),
+)
+fun configuredValue(key: String): String = localProperties.getProperty(key)?.takeIf { it.isNotBlank() }
+    ?: firebaseDefaults[key]?.toString().orEmpty()
 fun String.buildConfigLiteral() = "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
 android {
@@ -30,8 +52,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "MAPS_API_KEY", mapsApiKey.buildConfigLiteral())
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
-        listOf("FIREBASE_APPLICATION_ID", "FIREBASE_API_KEY", "FIREBASE_PROJECT_ID", "FIREBASE_STORAGE_BUCKET", "GOOGLE_WEB_CLIENT_ID").forEach { key ->
-            buildConfigField("String", key, localProperties.getProperty(key, "").buildConfigLiteral())
+        firebaseDefaults.keys.forEach { key ->
+            buildConfigField("String", key, configuredValue(key).buildConfigLiteral())
         }
     }
 
@@ -79,6 +101,7 @@ dependencies {
     implementation(libs.androidx.credentials.play)
     implementation(libs.google.id)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -118,6 +141,7 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.storage)
+    implementation(libs.firebase.messaging)
     implementation(libs.palette)
 
     testImplementation(libs.junit)

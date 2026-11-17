@@ -10,6 +10,13 @@ service cloud.firestore {
       return participant(t) && t.itemId == data.id && t.ownerChecked && t.guestChecked && t.ownerReturned && t.guestReturned;
     }
     match /profiles/{uid} {
+      match /devices/{installationId} {
+        allow read, delete: if signedIn() && request.auth.uid == uid;
+        allow create, update: if signedIn() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['token', 'updatedAt'])
+          && request.resource.data.token is string && request.resource.data.token.size() > 0
+          && request.resource.data.token.size() <= 4096 && request.resource.data.updatedAt is number;
+      }
       allow read: if signedIn() && (request.auth.uid == uid || campus(resource.data));
       allow create: if signedIn() && uid == request.auth.uid && request.resource.data.uid == uid
         && request.resource.data.keys().hasOnly(['uid', 'localId', 'displayName', 'campusName', 'campusKey'])
