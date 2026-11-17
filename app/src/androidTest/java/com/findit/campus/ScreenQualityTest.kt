@@ -179,6 +179,7 @@ class ScreenQualityTest {
         rule.onNodeWithText("Use in a lost report").performScrollTo().performClick()
         rule.runOnIdle { assertEquals("Notebook name", scanned); page = 2 }
         capture("profile")
+        rule.onNodeWithText("My reports").performScrollTo()
         rule.onAllNodesWithText("Reunited", useUnmergedTree = true).assertCountEquals(2)
         rule.runOnIdle { page = 3 }
         capture("map")

@@ -277,6 +277,9 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
                         else -> null
                     },
                     onConnect = if (signedIn.remoteUid == null || sync.error?.startsWith("Sign in online") == true) ({ connectOpen = true }) else null,
+                    onScan = { openTab(Routes.SCAN) },
+                    onMap = { openTab(Routes.MAP) },
+                    onMessages = { openTab(Routes.INBOX) },
                 )
             }
             composable(Routes.MAP) {
@@ -332,6 +335,10 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
                     email = signedIn.email,
                     campusName = signedIn.campusName,
                     onLogout = session::logout,
+                    onScan = { openTab(Routes.SCAN) },
+                    onMap = { openTab(Routes.MAP) },
+                    onMessages = { openTab(Routes.INBOX) },
+                    onResetPassword = { session.resetPassword(signedIn.email, feedback) },
                 )
             }
             composable(

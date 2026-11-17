@@ -31,7 +31,7 @@ class MineViewModel(app: Application) : AndroidViewModel(app) {
                 combine(graph.repository.observeMine(account.id), graph.sync.status) { items, sync ->
                     MineUiState(items = items, loading = false, syncNote = when {
                         !sync.configured -> "Offline mode · Reports and chats are saved on this device. Connect campus services to reach students on other phones."
-                        account.remoteUid == null -> "Local account · Create a campus account online to use shared reports and messaging."
+                        account.remoteUid == null -> "Saved on this phone · Connect your account from Home to share reports and message students."
                         sync.error != null -> sync.error
                         sync.connected -> "Campus services connected · Your changes sync automatically."
                         else -> "Connecting to campus services · Your changes are saved locally."

@@ -16,6 +16,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,15 +39,17 @@ fun DiscoverScreen(
     onPostFound: () -> Unit = {}, modifier: Modifier = Modifier, unreadCount: Int = 0,
     syncMessage: String? = null, onConnect: (() -> Unit)? = null, scrollRequest: Int = 0,
     onPostLost: (() -> Unit)? = null,
+    onScan: () -> Unit = {}, onMap: () -> Unit = {}, onMessages: () -> Unit = {},
 ) {
     val gridState = rememberLazyGridState()
     LaunchedEffect(scrollRequest) { if (scrollRequest > 0) gridState.animateScrollToItem(0) }
     var filtersOpen by rememberSaveable { mutableStateOf(false) }
+    var toolsOpen by rememberSaveable { mutableStateOf(false) }
     // A null business filter means the default Lost board. The Found tab remains independently searchable.
     val boardType = state.type ?: ItemType.LOST
     val visible = remember(state.items, boardType) { state.items.filter { it.type == boardType } }
     val gutter = if (expanded) 32.dp else 20.dp
-    LazyVerticalGrid(state = gridState, columns = GridCells.Adaptive(158.dp), modifier = modifier.fillMaxSize(),
+    LazyVerticalGrid(state = gridState, columns = GridCells.Adaptive(158.dp), modifier = modifier.fillMaxSize().testTag("campus-board"),
         contentPadding = PaddingValues(start = gutter, end = gutter, top = 12.dp, bottom = 100.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -55,7 +60,7 @@ fun DiscoverScreen(
                         Icon(Icons.Outlined.Notifications, "Notifications")
                     }
                 }
-                IconButton(onClick = onProfile) { Avatar(displayName) }
+                IconButton(onClick = onProfile, modifier = Modifier.semantics { contentDescription = "Open your profile" }) { Avatar(displayName) }
             }
         }
         syncMessage?.let { message -> item(span = { GridItemSpan(maxLineSpan) }) {
@@ -73,11 +78,17 @@ fun DiscoverScreen(
             IllustratedHeading("Lost something\non campus?", "A little help can bring it home. Find your things, or make someone's day.", R.drawable.cutout_9_392e3d4c8b06)
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
+            CampusAction(Icons.Outlined.AutoAwesome, "Find it faster", "AI photo clues, maps & private meet-ups", { toolsOpen = true })
+        }
+        item(span = { GridItemSpan(maxLineSpan) }) {
             OutlinedTextField(state.query, onQuery, Modifier.fillMaxWidth(),
                 placeholder = { Text("Search items or campus places", style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 leadingIcon = { Icon(Icons.Outlined.Search, null) },
-                trailingIcon = { IconButton(onClick = { filtersOpen = true }) { Icon(Icons.Outlined.Tune, "Filters") } },
+                trailingIcon = { Row {
+                    if (state.query.isNotBlank()) IconButton({ onQuery("") }) { Icon(Icons.Outlined.Close, "Clear search") }
+                    IconButton(onClick = { filtersOpen = true }) { Icon(Icons.Outlined.Tune, "Filters") }
+                } },
                 singleLine = true, shape = CircleShape,
                 colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .5f),
                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant),
@@ -141,6 +152,7 @@ fun DiscoverScreen(
                 Modifier.animateItem())
         }
     }
+    if (toolsOpen) CampusToolsSheet({ toolsOpen = false }, onScan, onMap, onMessages)
     if (filtersOpen) ModalBottomSheet(onDismissRequest = { filtersOpen = false }) {
         Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Make it easier to find", style = MaterialTheme.typography.titleLarge)
