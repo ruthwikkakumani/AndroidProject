@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -294,13 +295,13 @@ fun BoardItemCard(item: Item, onClick: () -> Unit, onAction: (() -> Unit)?, modi
             }
             Text(formatWhen(item.createdAt), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
             if (onAction != null && item.status == ItemStatus.OPEN) {
-                Button(onClick = onAction, modifier = Modifier.fillMaxWidth().height(40.dp),
+                Button(onClick = onAction, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp),
                     shape = RoundedCornerShape(12.dp)) {
                     Text(if (item.type == ItemType.LOST) "Found it" else "This is mine", style = MaterialTheme.typography.labelMedium)
                 }
             } else {
-                TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth().height(40.dp)) {
+                TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                     Text(if (item.status == ItemStatus.REUNITED) "View return" else "View report", style = MaterialTheme.typography.labelMedium)
                 }
             }

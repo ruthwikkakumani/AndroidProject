@@ -20,11 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 
-private val Ink = Color(0xFF14221C)
-private val Forest = Color(0xFF1F6B4A)
 private val Leaf = Color(0xFF8FD6B0)
-private val Cream = Color(0xFFF6F1E7)
-private val Amber = Color(0xFF8A5A12)
 
 private val LightColors = lightColorScheme(
     primary = Color(0xFF148460),
@@ -33,15 +29,15 @@ private val LightColors = lightColorScheme(
     onPrimaryContainer = Color(0xFF084F37),
     secondary = Color(0xFF148460),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE7F5EE),
+    secondaryContainer = Color(0xFFEAF6EF),
     onSecondaryContainer = Color(0xFF042E2C),
     tertiary = Color(0xFF647BEA),
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFEDF0FF),
     onTertiaryContainer = Color(0xFF241542),
-    background = Color(0xFFF9FAF7),
+    background = Color(0xFFF9F9F4),
     onBackground = Color(0xFF172B43),
-    surface = Color(0xFFF9FAF7),
+    surface = Color(0xFFF9F9F4),
     onSurface = Color(0xFF172B43),
     surfaceVariant = Color(0xFFEDF1EC),
     onSurfaceVariant = Color(0xFF697586),
@@ -61,14 +57,14 @@ private val DarkColors = darkColorScheme(
     onPrimary = Color(0xFF003824),
     primaryContainer = Color(0xFF0E4F36),
     onPrimaryContainer = Color(0xFFBFE8D2),
-    secondary = Color(0xFFF0C27A),
-    onSecondary = Color(0xFF3E2700),
-    secondaryContainer = Color(0xFF5C3E0A),
-    onSecondaryContainer = Color(0xFFFFDDB3),
-    tertiary = Color(0xFF90D0E4),
-    onTertiary = Color(0xFF003543),
-    tertiaryContainer = Color(0xFF0E4C60),
-    onTertiaryContainer = Color(0xFFC5E7F2),
+    secondary = Leaf,
+    onSecondary = Color(0xFF003824),
+    secondaryContainer = Color(0xFF163E36),
+    onSecondaryContainer = Color(0xFFBFE8D2),
+    tertiary = Color(0xFFB7C1FF),
+    onTertiary = Color(0xFF242F69),
+    tertiaryContainer = Color(0xFF313E7A),
+    onTertiaryContainer = Color(0xFFE1E5FF),
     background = Color(0xFF121C29),
     onBackground = Color(0xFFEAF0F8),
     surface = Color(0xFF121C29),
@@ -111,18 +107,18 @@ private val DarkExtra = FindItColors(
     lost = Color(0xFFFFB4A4),
     onLost = Color(0xFF5C1A0E),
     lostContainer = Color(0xFF6B2E22),
-    found = Color(0xFF90D0E4),
-    onFound = Color(0xFF003543),
-    foundContainer = Color(0xFF0E4C60),
-    reunion = Color(0xFFF0C27A),
+    found = Leaf,
+    onFound = Color(0xFF003824),
+    foundContainer = Color(0xFF163E36),
+    reunion = Leaf,
 )
 
 private val LocalFindItColors = staticCompositionLocalOf { LightExtra }
 
 private val FindItType = Typography(
-    headlineLarge = TextStyle(fontSize = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.6).sp),
-    headlineMedium = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp),
-    titleLarge = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold),
+    headlineLarge = TextStyle(fontSize = 32.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.6).sp),
+    headlineMedium = TextStyle(fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp),
+    titleLarge = TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold),
     titleMedium = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
     titleSmall = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
     bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 22.sp),

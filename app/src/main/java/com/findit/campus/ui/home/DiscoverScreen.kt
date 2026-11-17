@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -16,6 +17,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.findit.campus.R
 import com.findit.campus.data.CampusCatalog
@@ -53,31 +55,37 @@ fun DiscoverScreen(
             }
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
-            IllustratedHeading("Lost something\non campus?", "A little help can bring it home. Find your things, or make someone's day.", R.drawable.art_discover)
+            IllustratedHeading("Lost something\non campus?", "A little help can bring it home. Find your things, or make someone's day.", R.drawable.cutout_9_392e3d4c8b06)
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
             OutlinedTextField(state.query, onQuery, Modifier.fillMaxWidth(),
-                placeholder = { Text("Search items or campus places", style = MaterialTheme.typography.bodyMedium) },
+                placeholder = { Text("Search items or campus places", style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 leadingIcon = { Icon(Icons.Outlined.Search, null) },
                 trailingIcon = { IconButton(onClick = { filtersOpen = true }) { Icon(Icons.Outlined.Tune, "Filters") } },
-                singleLine = true, shape = MaterialTheme.shapes.medium,
+                singleLine = true, shape = CircleShape,
                 colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .5f),
                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search))
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { FilterChip(state.category == null, { onCategory(null) }, label = { Text("All items") }) }
+                item { FilterChip(state.category == null, { onCategory(null) }, shape = CircleShape, label = { Text("All items") }) }
                 items((state.categories + CampusCatalog.categoryNames).distinct()) { category ->
                     FilterChip(state.category == category, { onCategory(if (state.category == category) null else category) },
-                        label = { Text(category) }, leadingIcon = { Icon(categoryIcon(category), null, Modifier.size(16.dp)) })
+                        shape = CircleShape, label = { Text(category) }, leadingIcon = { Icon(categoryIcon(category), null, Modifier.size(16.dp)) })
                 }
             }
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 listOf(ItemType.LOST to "Lost board", ItemType.FOUND to "Found board").forEachIndexed { index, (type, name) ->
-                    SegmentedButton(boardType == type, { onType(type) }, shape = SegmentedButtonDefaults.itemShape(index, 2)) { Text(name) }
+                    SegmentedButton(boardType == type, { onType(type) }, shape = SegmentedButtonDefaults.itemShape(index, 2),
+                        colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            inactiveContainerColor = MaterialTheme.colorScheme.surface,
+                            inactiveBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            activeBorderColor = MaterialTheme.colorScheme.outlineVariant)) { Text(name) }
                 }
             }
         }

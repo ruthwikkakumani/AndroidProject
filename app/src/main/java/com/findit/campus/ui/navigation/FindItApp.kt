@@ -21,6 +21,9 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -135,7 +138,10 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
     val sessionState by session.state.collectAsStateWithLifecycle()
     if (sessionState.loading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                Brand()
+                CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
+            }
         }
         return
     }
@@ -190,12 +196,19 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
                     onClick = { navController.navigate(Routes.post()) },
                     icon = { Icon(Icons.Filled.Add, contentDescription = null) },
                     text = { Text("Report") },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = MaterialTheme.shapes.large,
                 )
             }
         },
         bottomBar = {
             if (showBar && !wide) {
-                NavigationBar {
+              Surface(Modifier.padding(horizontal = 12.dp).padding(top = 6.dp, bottom = 8.dp).navigationBarsPadding(),
+                  shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow,
+                  border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f)), shadowElevation = 4.dp) {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow, tonalElevation = 0.dp,
+                    windowInsets = WindowInsets(0, 0, 0, 0), modifier = Modifier.height(80.dp)) {
                     tabs.forEach { tab ->
                         NavigationBarItem(
                             selected = route == tab.route || (tab.route == Routes.INBOX && route == Routes.ALERTS),
@@ -207,12 +220,13 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
                         )
                     }
                 }
+              }
             }
         },
     ) { padding ->
         Row(Modifier.padding(padding).fillMaxSize()) {
             if (showBar && wide) NavigationRail(header = {
-                Image(painterResource(R.drawable.findit_logo), "FindIt", Modifier.padding(12.dp).size(34.dp))
+                Image(painterResource(R.drawable.cutout_2_d511eb0ee341), "FindIt", Modifier.padding(12.dp).size(34.dp))
                 FloatingActionButton({ navController.navigate(Routes.post()) }, Modifier.padding(8.dp)) {
                     Icon(Icons.Filled.Add, "Report a lost item")
                 }
@@ -390,9 +404,13 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
 @Composable
 private fun TabIcon(tab: Tab, route: String, unread: Int) {
     val selected = route == tab.route || (tab.route == Routes.INBOX && route == Routes.ALERTS)
+    val scale by animateFloatAsState(if (selected) 1.08f else 1f, tween(220), label = "tab selection")
+    val iconModifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
+        .semantics { if (tab.route == Routes.INBOX) stateDescription = "$unread unread alerts" }
     BadgedBox(badge = { if (tab.route == Routes.INBOX && unread > 0) Badge { Text(if (unread > 99) "99+" else unread.toString()) } }) {
-        Icon(if (selected) tab.selectedIcon else tab.icon, tab.label,
-            Modifier.semantics { if (tab.route == Routes.INBOX) stateDescription = "$unread unread alerts" })
+        if (tab.route == Routes.SCAN) Image(painterResource(R.drawable.cutout_40_3f7a586b081d), tab.label,
+            iconModifier.size(24.dp))
+        else Icon(if (selected) tab.selectedIcon else tab.icon, tab.label, iconModifier)
     }
 }
 
