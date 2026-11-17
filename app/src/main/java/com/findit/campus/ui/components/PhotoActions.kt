@@ -24,7 +24,7 @@ import kotlinx.coroutines.CancellationException
 /** Shared capture/picker workflow. A granted first request resumes the original capture action. */
 @Composable
 fun PhotoActions(onPhoto: (Bitmap) -> Unit, onError: (String) -> Unit, modifier: Modifier = Modifier,
-    enabled: Boolean = true, cameraLabel: String = "Take photo", galleryLabel: String = "Choose photo") {
+    enabled: Boolean = true, cameraLabel: String = "Take photo", galleryLabel: String = "Choose photo", onDarkSurface: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val feedback = LocalFeedback.current
@@ -39,12 +39,15 @@ fun PhotoActions(onPhoto: (Bitmap) -> Unit, onError: (String) -> Unit, modifier:
             catch (error: Exception) { onError("This photo could not be loaded. Please try another image.") }
         }
     }
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        FilledTonalButton({ cameraRequested = true; if (!granted) ask() }, Modifier.weight(1f), enabled = enabled,
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        FilledTonalButton({ cameraRequested = true; if (!granted) ask() }, Modifier.weight(1f).heightIn(min = 48.dp), enabled = enabled,
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)) {
             Icon(Icons.Outlined.PhotoCamera, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(cameraLabel, style = MaterialTheme.typography.labelMedium)
         }
-        OutlinedButton({ picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly)) }, Modifier.weight(1f), enabled = enabled,
+        OutlinedButton({ picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly)) }, Modifier.weight(1f).heightIn(min = 48.dp), enabled = enabled,
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = if (onDarkSurface) MaterialTheme.colorScheme.inverseOnSurface else MaterialTheme.colorScheme.primary,
+                disabledContentColor = if (onDarkSurface) MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = .38f) else MaterialTheme.colorScheme.onSurface.copy(alpha = .38f)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (onDarkSurface) MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = .35f) else MaterialTheme.colorScheme.outline),
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)) {
             Icon(Icons.Outlined.PhotoLibrary, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(galleryLabel, style = MaterialTheme.typography.labelMedium)
         }
@@ -75,7 +78,7 @@ fun CameraCapture(onClose: () -> Unit, onPhoto: (Bitmap) -> Unit, onError: (Stri
                             capturing = true
                             camera.takePicture(context, onResult = { capturing = false; onPhoto(it) },
                                 onError = { capturing = false; error = it; onError(it) })
-                        }, Modifier.weight(1f).height(52.dp), enabled = !capturing) { Text(if (capturing) "Capturing…" else "Use this photo") }
+                        }, Modifier.weight(1f).heightIn(min = 52.dp), enabled = !capturing) { Text(if (capturing) "Capturing…" else "Use this photo") }
                     }
                 }
             }

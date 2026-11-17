@@ -23,7 +23,7 @@ import androidx.core.view.WindowCompat
 private val Leaf = Color(0xFF8FD6B0)
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF148460),
+    primary = Color(0xFF107957),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFE0F4EA),
     onPrimaryContainer = Color(0xFF084F37),
@@ -35,19 +35,22 @@ private val LightColors = lightColorScheme(
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFEDF0FF),
     onTertiaryContainer = Color(0xFF241542),
-    background = Color(0xFFF9F9F4),
+    background = Color(0xFFF5F7F5),
     onBackground = Color(0xFF172B43),
-    surface = Color(0xFFF9F9F4),
+    surface = Color(0xFFF5F7F5),
     onSurface = Color(0xFF172B43),
     surfaceVariant = Color(0xFFEDF1EC),
-    onSurfaceVariant = Color(0xFF697586),
+    onSurfaceVariant = Color(0xFF586779),
     surfaceContainerLowest = Color.White,
     surfaceContainerLow = Color(0xFFFFFFFF),
     surfaceContainer = Color(0xFFF0F4EF),
     surfaceContainerHigh = Color(0xFFE8EEE7),
     surfaceContainerHighest = Color(0xFFE0E7DF),
     outline = Color(0xFF9AA6B8),
-    outlineVariant = Color(0xFFE1E7DF),
+    outlineVariant = Color(0xFFDFE6E2),
+    inverseSurface = Color(0xFF153C3A),
+    inverseOnSurface = Color(0xFFF4FAF7),
+    inversePrimary = Color(0xFF94E0BB),
     error = Color(0xFFB42318),
     onError = Color.White,
 )
@@ -122,17 +125,18 @@ private val FindItType = Typography(
     titleMedium = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
     titleSmall = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
     bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 22.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
+    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 21.sp),
     bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp),
     labelLarge = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium),
-    labelMedium = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium),
+    labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
+    labelSmall = TextStyle(fontSize = 11.sp, lineHeight = 15.sp, letterSpacing = .3.sp, fontWeight = FontWeight.SemiBold),
 )
 
 private val FindItShapes = Shapes(
     extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
     small = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
     medium = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-    large = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+    large = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
     extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(36.dp),
 )
 

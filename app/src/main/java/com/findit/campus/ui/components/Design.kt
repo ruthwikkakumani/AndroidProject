@@ -43,21 +43,22 @@ fun Illustration(@DrawableRes resource: Int, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun IllustratedHeading(title: String, body: String, @DrawableRes art: Int, modifier: Modifier = Modifier) {
-    Surface(modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.secondaryContainer) {
-      BoxWithConstraints(Modifier.padding(18.dp)) {
-        val narrow = maxWidth < 310.dp
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(Modifier.weight(if (narrow) 1.8f else 1.5f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(title, style = MaterialTheme.typography.headlineMedium.copy(
-                    fontSize = if (narrow) 22.sp else 24.sp, lineHeight = if (narrow) 28.sp else 30.sp),
-                    modifier = Modifier.semantics { heading() })
-                Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+fun IllustratedHeading(title: String, body: String, @DrawableRes art: Int, modifier: Modifier = Modifier,
+    action: (@Composable ColumnScope.() -> Unit)? = null) {
+    FeaturePanel(modifier) {
+        BoxWithConstraints {
+            val narrow = maxWidth < 310.dp
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.weight(if (narrow) 2f else 1.7f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(title, style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.semantics { heading() })
+                    Text(body, style = MaterialTheme.typography.bodyMedium,
+                        color = LocalContentColor.current.copy(alpha = .78f))
+                }
+                Illustration(art, Modifier.weight(1f).height(if (narrow) 100.dp else 140.dp))
             }
-            Illustration(art, Modifier.weight(1f).height(if (narrow) 108.dp else 136.dp))
         }
-      }
+        action?.invoke(this)
     }
 }
 
@@ -66,7 +67,7 @@ fun FormCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() 
     Surface(modifier.fillMaxWidth().animateContentSize(), shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
     }
 }
 
@@ -92,7 +93,7 @@ fun TrustNote(text: String, modifier: Modifier = Modifier) {
 
 @Composable
 fun Avatar(name: String, modifier: Modifier = Modifier) {
-    Surface(modifier.size(42.dp), shape = CircleShape, color = MaterialTheme.colorScheme.tertiaryContainer) {
+    Surface(modifier.sizeIn(minWidth = 42.dp, minHeight = 42.dp), shape = CircleShape, color = MaterialTheme.colorScheme.tertiaryContainer) {
         Box(contentAlignment = Alignment.Center) {
             Text(name.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1).uppercase() }.ifBlank { "F" },
                 style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
@@ -103,6 +104,6 @@ fun Avatar(name: String, modifier: Modifier = Modifier) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PageTopBar(title: String, onBack: () -> Unit, actions: @Composable RowScope.() -> Unit = {}) {
-    TopAppBar(title = { Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+    TopAppBar(colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background), title = { Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }, actions = actions)
 }

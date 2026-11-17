@@ -1,6 +1,7 @@
 package com.findit.campus.ui.components
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.height
@@ -49,6 +50,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.findit.campus.FindItApplication
@@ -154,7 +156,8 @@ fun ItemCard(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f)),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Row(
@@ -177,7 +180,7 @@ fun ItemCard(
                     Text(
                         text = item.title,
                         style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
@@ -202,16 +205,10 @@ fun ItemCard(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Text(
-                        text = "·",
-                        color = MaterialTheme.colorScheme.outline,
-                    )
-                    Text(
-                        text = formatWhen(item.createdAt),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+
                 }
+                Text(formatWhen(item.createdAt), style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (matchCount > 0 && item.status == ItemStatus.OPEN) {
                     Text(
                         text = if (matchCount == 1) "1 possible match" else "$matchCount possible matches",
@@ -256,9 +253,10 @@ fun EmptyBoard(
         ) {
             Icon(Icons.Outlined.Place, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
         }
-        Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+        Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.semantics { heading() })
         Text(
             body,
+            textAlign = TextAlign.Center,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -279,14 +277,14 @@ fun BoardItemCard(item: Item, onClick: () -> Unit, onAction: (() -> Unit)?, modi
     val colors = MaterialTheme.colorScheme
     Surface(onClick = onClick, modifier = modifier, shape = MaterialTheme.shapes.large,
         color = colors.surfaceContainerLow,
-        border = androidx.compose.foundation.BorderStroke(1.dp, colors.outlineVariant)) {
-        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        border = BorderStroke(1.dp, colors.outlineVariant.copy(alpha = .65f))) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Box {
                 ItemPhoto(item.photoPath, item.title, item.category, colors.tertiary,
-                    Modifier.fillMaxWidth().height(128.dp))
+                    Modifier.fillMaxWidth().height(148.dp))
                 TypeBadge(item.type, item.status, Modifier.padding(6.dp))
             }
-            Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Place, null, Modifier.size(13.dp), tint = colors.onSurfaceVariant)
                 Text(item.zoneName.ifBlank { "Campus" }, style = MaterialTheme.typography.bodySmall,
