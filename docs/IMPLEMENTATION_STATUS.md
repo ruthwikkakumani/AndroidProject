@@ -1,5 +1,7 @@
 # Implementation status
 
-The local college-project workflow is implemented. Google Maps is configured locally and live tiles were verified on the emulator. Google OAuth and Firebase integration is prepared with setup instructions; their project configuration has not been supplied. Classroom scope is recorded in [DEMO.md](../DEMO.md).
+The college-project workflow is implemented with Room and locally configured Firebase authentication, Firestore, Storage and notification functions. Google Maps is configured locally and live tiles were verified on the emulator. Classroom instructions are in [DEMO.md](../DEMO.md).
 
-The app builds and its essential automated checks cover authentication, reports, private conversations, evidence, two-sided return, camera, GPS, saved walking trails and screen flows. See the final results in [QA_TEST_PLAN.md](QA_TEST_PLAN.md). No push or deployment was performed.
+Home reopens the Lost board and clears hidden filters. Older saved accounts can connect to Firebase without losing their reports. Uploads respond to Room changes immediately and retry on failure; chat distinguishes queued messages from uploaded messages. Private conversations support shared meeting pins and optional foreground live updates.
+
+A live Android SDK test uses two independent Firebase accounts and Room databases. It verified an older local account's report migration, visibility to another student, messages in both directions, a shared meeting pin, and both students' verification and handover. Camera, GPS, recognition/OCR, maps and screen flows have separate device tests. Physical two-phone UI and background push checks remain outstanding. Git changes are local; no Git push was performed.
