@@ -15,7 +15,7 @@ import org.junit.Test
 
 class DatabaseUpgradeTest {
     @Test fun everyPublishedSchemaUpgradesWithoutLosingReportsOrChats() {
-        for (version in 2..5) upgrade(version)
+        for (version in 2..6) upgrade(version)
     }
 
     private fun upgrade(version: Int) {
@@ -43,20 +43,20 @@ class DatabaseUpgradeTest {
         try {
             helper.writableDatabase.apply {
                 execSQL("INSERT INTO categories (id, name, symbol) VALUES (1, 'Bottles', 'bottle')")
-                val ownerColumns = if (version >= 3) ", ownerId, hasCoordinates" else ""
-                val ownerValues = if (version >= 3) ", 1, 1" else ""
+                val ownerColumns = (if (version >= 3) ", ownerId, hasCoordinates" else "") + if (version >= 6) ", campusKey" else ""
+                val ownerValues = (if (version >= 3) ", 1, 1" else "") + if (version >= 6) ", 'city college'" else ""
                 execSQL("INSERT INTO items (id, title, description, categoryId, type, status, latitude, longitude, placeLabel, zoneName, scannedText, contact, createdAt, isSample$ownerColumns) VALUES (7, 'Keep this report', 'Keep its description', 1, 'LOST', 'OPEN', 1.0, 2.0, 'Library', 'Library', '', '', 10, 0$ownerValues)")
                 if (version >= 3) execSQL("INSERT INTO accounts (id, displayName, email, passwordHash, passwordSalt, campusName, createdAt) VALUES (1, 'Student', 'student@example.edu', 'hash', 'salt', 'City College', 1)")
                 if (version >= 4) {
-                    val flags = if (version == 5) ", ownerChecked, guestChecked" else ""
-                    val values = if (version == 5) ", 1, 1" else ""
+                    val flags = if (version >= 5) ", ownerChecked, guestChecked" else ""
+                    val values = if (version >= 5) ", 1, 1" else ""
                     execSQL("INSERT INTO threads (id, itemId, ownerId, guestId, status, createdAt$flags) VALUES (8, 7, 1, 2, 'OPEN', 10$values)")
                     execSQL("INSERT INTO messages (id, threadId, senderId, body, createdAt) VALUES (9, 8, 2, 'Keep this message', 11)")
                 }
             }
             helper.close()
             val db = Room.databaseBuilder(context, FindItDatabase::class.java, name)
-                .addMigrations(Migrations.MIGRATION_2_3, Migrations.MIGRATION_3_4, Migrations.MIGRATION_4_5, Migrations.MIGRATION_5_6).build()
+                .addMigrations(Migrations.MIGRATION_2_3, Migrations.MIGRATION_3_4, Migrations.MIGRATION_4_5, Migrations.MIGRATION_5_6, Migrations.MIGRATION_6_7).build()
             try {
                 db.openHelper.writableDatabase.query("SELECT title, campusKey FROM items WHERE id = 7").use {
                     assertTrue("Report retained from v$version", it.moveToFirst())

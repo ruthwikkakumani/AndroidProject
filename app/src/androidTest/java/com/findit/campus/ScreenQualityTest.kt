@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.runtime.*
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
@@ -205,6 +206,51 @@ class ScreenQualityTest {
         rule.onNodeWithText("A thoughtful return").assertExists()
         capture("ownership-checks")
         rule.onNodeWithText("The handover is complete").performScrollTo().assertIsNotEnabled()
+    }
+
+    @Test fun mapTrailControlsAndDraggableItemPanelWork() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.uiAutomation.grantRuntimePermission(instrumentation.targetContext.packageName, android.Manifest.permission.ACCESS_FINE_LOCATION)
+        instrumentation.uiAutomation.grantRuntimePermission(instrumentation.targetContext.packageName, android.Manifest.permission.ACCESS_COARSE_LOCATION)
+        val now = System.currentTimeMillis()
+        val points = listOf(
+            TrailPoint(accountId = 55, segmentId = "preview", latitude = 13.0821, longitude = 80.2700, accuracyMeters = 5f, capturedAt = now - 15_000),
+            TrailPoint(accountId = 55, segmentId = "preview", latitude = 13.0823, longitude = 80.2703, accuracyMeters = 5f, capturedAt = now - 10_000),
+            TrailPoint(accountId = 55, segmentId = "preview", latitude = 13.0827, longitude = 80.2703, accuracyMeters = 5f, capturedAt = now - 5_000),
+        )
+        var state by mutableStateOf(MapUiState(items = listOf(sample(ItemType.LOST).copy(hasCoordinates = true,
+            latitude = 13.0832, longitude = 80.2711)), permission = true,
+            fix = com.findit.campus.location.DeviceFix(13.0827, 80.2703, 5f),
+            trail = TrailUiState(points = points, distanceMeters = com.findit.campus.location.trailDistanceMeters(points))))
+        var opened: Long? = null
+        rule.setContent { FindItTheme { Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
+            MapScreen(state, { state = state.copy(focus = it) }, { state = state.copy(type = it) },
+                { state = state.copy(selectedId = it) }, { state = state.copy(selectedId = -1) }, { opened = it }, {}, {},
+                onToggleTrail = { state = state.copy(trail = state.trail.copy(recording = !state.trail.recording)) },
+                onClearTrail = { state = state.copy(trail = TrailUiState()) })
+        } } }
+        rule.onNodeWithText("Resume trail").performClick()
+        rule.onNodeWithText("Pause trail").assertExists()
+        rule.mainClock.advanceTimeBy(600)
+        capture("map-trail")
+        rule.onNodeWithText("Pause trail").performClick()
+        if (BuildConfig.MAPS_API_KEY.isBlank()) {
+            rule.onNodeWithContentDescription("Navy bottle, Library").performClick()
+            rule.onNodeWithText("Walking directions").assertExists()
+            rule.mainClock.advanceTimeBy(600)
+            rule.waitForIdle()
+            val panelFile = File(instrumentation.targetContext.getExternalFilesDir(null), "quality-screens/map-item-panel.png")
+            panelFile.outputStream().use { instrumentation.uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it) }
+            rule.onNodeWithText("View report").performClick()
+            rule.runOnIdle { assertEquals(81L, opened) }
+        }
+        rule.onNodeWithContentDescription("Clear saved trail").performClick()
+        rule.onNodeWithText("Keep trail").performClick()
+        rule.runOnIdle { assertEquals(3, state.trail.points.size) }
+        rule.onNodeWithContentDescription("Clear saved trail").performClick()
+        rule.onNodeWithText("Clear trail").performClick()
+        rule.onNodeWithText("Start trail").assertExists()
+        rule.runOnIdle { assertTrue(state.trail.points.isEmpty()) }
     }
 }
 @Composable private fun TextDashboard() { androidx.compose.material3.Text("Dashboard opened") }

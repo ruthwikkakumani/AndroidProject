@@ -61,5 +61,13 @@ class DeviceServicesTest {
         assertTrue(current!!.accuracyMeters >= 0)
         assertEquals(update.latitude, current.latitude, 0.01)
         assertEquals(update.longitude, current.longitude, 0.01)
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.findit.campus.data.local.FindItDatabase::class.java).build()
+        try {
+            val trail = com.findit.campus.location.WalkingTrailRepository(db.trailDao())
+            assertTrue(trail.append(1, "device-gps", current))
+            val saved = trail.observe(1).first().single()
+            assertEquals(current.latitude, saved.latitude, 0.000001)
+            assertEquals(current.longitude, saved.longitude, 0.000001)
+        } finally { db.close() }
     }
 }

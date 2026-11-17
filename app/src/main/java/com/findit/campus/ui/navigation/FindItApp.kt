@@ -272,6 +272,8 @@ private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestinat
                     onOpen = { navController.navigate(Routes.detail(it)) },
                     onTracking = model::setTracking,
                     onPermission = model::setPermission,
+                    onToggleTrail = model::toggleTrail,
+                    onClearTrail = model::clearTrail,
                 )
             }
             composable(Routes.SCAN) {

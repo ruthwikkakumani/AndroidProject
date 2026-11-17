@@ -35,6 +35,7 @@ class AppGraph(context: Application) {
     val checker = PhotoCheckEngine(scanner)
     val chat = ChatRepository(database, repository, photos, checker, sync)
     val location = LocationDataSource(context)
+    val trails = com.findit.campus.location.WalkingTrailRepository(database.trailDao())
 }
 
 class FindItApplication : Application() {

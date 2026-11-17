@@ -16,8 +16,9 @@ import androidx.room.TypeConverters
         ThreadEntity::class,
         MessageEntity::class,
         PendingWrite::class,
+        TrailPoint::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -30,6 +31,7 @@ abstract class FindItDatabase : RoomDatabase() {
 
     abstract fun chatDao(): ChatDao
     abstract fun syncDao(): SyncDao
+    abstract fun trailDao(): TrailDao
 
     companion object {
         @Volatile
@@ -44,6 +46,7 @@ abstract class FindItDatabase : RoomDatabase() {
                 ).addMigrations(
                     Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3,
                     Migrations.MIGRATION_3_4, Migrations.MIGRATION_4_5, Migrations.MIGRATION_5_6,
+                    Migrations.MIGRATION_6_7,
                 )
                     .build()
                     .also { instance = it }

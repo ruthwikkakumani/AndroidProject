@@ -34,6 +34,7 @@ data class DeviceFix(
     val latitude: Double,
     val longitude: Double,
     val accuracyMeters: Float,
+    val capturedAtMillis: Long = System.currentTimeMillis(),
 )
 
 class LocationDataSource(private val context: Context) {
@@ -87,6 +88,7 @@ class LocationDataSource(private val context: Context) {
                             latitude = location.latitude,
                             longitude = location.longitude,
                             accuracyMeters = location.accuracy,
+                            capturedAtMillis = location.time,
                         ),
                     )
                 }
@@ -109,7 +111,7 @@ class LocationDataSource(private val context: Context) {
                 if (!continuation.isActive) return@addOnSuccessListener
                 continuation.resume(
                     location?.let {
-                        DeviceFix(it.latitude, it.longitude, it.accuracy)
+                        DeviceFix(it.latitude, it.longitude, it.accuracy, it.time)
                     },
                 )
             }
@@ -125,7 +127,7 @@ class LocationDataSource(private val context: Context) {
             .addOnSuccessListener { location ->
                 if (!continuation.isActive) return@addOnSuccessListener
                 val fresh = location?.takeIf { (SystemClock.elapsedRealtimeNanos() - it.elapsedRealtimeNanos) / 1_000_000 <= 60_000 }
-                continuation.resume(fresh?.let { DeviceFix(it.latitude, it.longitude, it.accuracy) })
+                continuation.resume(fresh?.let { DeviceFix(it.latitude, it.longitude, it.accuracy, it.time) })
             }
             .addOnFailureListener { error ->
                 FindItLog.e("Last location failed", error)

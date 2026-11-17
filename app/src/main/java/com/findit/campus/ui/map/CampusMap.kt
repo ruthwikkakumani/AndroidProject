@@ -18,20 +18,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.findit.campus.location.Campus
+import com.findit.campus.data.local.TrailPoint
 import com.findit.campus.location.DeviceFix
 import com.findit.campus.location.MapBounds
 import com.findit.campus.location.distanceMeters
@@ -49,17 +50,12 @@ fun CampusMap(
     selectedId: Long?,
     onSelect: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    trail: List<TrailPoint> = emptyList(),
 ) {
-    val bounds = rememberBounds(items, user, focus)
+    val bounds = rememberBounds(items, user, focus, trail)
     val palette = FindItPalette.colors
     val land = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
-    val pathColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
-    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val labelPaint = android.graphics.Paint().apply {
-        isAntiAlias = true
-        textSize = with(LocalDensity.current) { 11.sp.toPx() }
-        color = labelColor.toArgb()
-    }
+    val pathColor = MaterialTheme.colorScheme.primary
     BoxWithConstraints(
         modifier = modifier.background(MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
@@ -74,15 +70,29 @@ fun CampusMap(
             val y = padding + ((bounds.north - latitude) / heightSpan).toFloat() * (heightPx - padding * 2)
             return Offset(x, y)
         }
+        val trailPaths = remember(trail, bounds, widthPx, heightPx, padding) {
+            trail.groupBy { it.segmentId }.values.filter { it.size > 1 }.map { points ->
+                Path().apply {
+                    points.forEachIndexed { index, point ->
+                        val xy = project(point.latitude, point.longitude)
+                        if (index == 0) moveTo(xy.x, xy.y) else lineTo(xy.x, xy.y)
+                    }
+                }
+            }
+        }
         Canvas(Modifier.fillMaxSize()) {
             drawRect(land)
+            trailPaths.forEach { path ->
+                drawPath(path, Color.White, style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round))
+                drawPath(path, pathColor, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round))
+            }
         }
         items.filter { it.hasCoordinates }.forEach { item ->
             val point = project(item.latitude, item.longitude)
             val selected = item.id == selectedId
             val scale by animateFloatAsState(if (selected) 1.25f else 1f, label = "marker")
             val color = if (item.type == ItemType.LOST) palette.lost else palette.found
-            val markerSize = 18.dp * scale
+            val markerSize = 44.dp
             Box(
                 modifier = Modifier
                     .offset {
@@ -92,13 +102,16 @@ fun CampusMap(
                         )
                     }
                     .size(markerSize)
-                    .clip(CircleShape)
-                    .background(color)
                     .clickable { onSelect(item.id) }
                     .semantics { contentDescription = "${item.title}, ${item.zoneName}" },
-            )
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(Modifier.size(22.dp * scale).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(16.dp * scale).clip(CircleShape).background(color))
+                }
+            }
         }
-        if (user != null && shouldDrawUser(user, focus)) {
+        if (user != null) {
             val point = project(user.latitude, user.longitude)
             val pulse by rememberInfiniteTransition(label = "puck").animateFloat(
                 initialValue = 0.35f,
@@ -129,7 +142,7 @@ fun CampusMap(
 }
 
 @Composable
-private fun rememberBounds(items: List<Item>, user: DeviceFix?, focus: MapFocus): MapBounds {
+private fun rememberBounds(items: List<Item>, user: DeviceFix?, focus: MapFocus, trail: List<TrailPoint>): MapBounds {
     val points = mutableListOf<Pair<Double, Double>>()
     val located = items.filter { it.hasCoordinates }
     if (focus == MapFocus.NEAR_ME && user != null) {
@@ -140,7 +153,6 @@ private fun rememberBounds(items: List<Item>, user: DeviceFix?, focus: MapFocus)
         located.forEach { points += it.latitude to it.longitude }
         if (user != null) points += user.latitude to user.longitude
     }
+    trail.forEach { points += it.latitude to it.longitude }
     return enclosingBounds(points.ifEmpty { listOf(0.0 to 0.0) })
 }
-
-private fun shouldDrawUser(user: DeviceFix, focus: MapFocus): Boolean = true

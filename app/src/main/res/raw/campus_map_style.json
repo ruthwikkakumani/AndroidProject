@@ -1,0 +1,9 @@
+[
+  {"featureType":"poi.business","stylers":[{"visibility":"off"}]},
+  {"featureType":"poi.park","elementType":"geometry","stylers":[{"color":"#e5eee4"}]},
+  {"featureType":"landscape","elementType":"geometry","stylers":[{"color":"#f4f5ef"}]},
+  {"featureType":"road","elementType":"geometry","stylers":[{"color":"#ffffff"}]},
+  {"featureType":"road","elementType":"labels.text.fill","stylers":[{"color":"#647481"}]},
+  {"featureType":"water","elementType":"geometry","stylers":[{"color":"#dbe4f1"}]},
+  {"elementType":"labels.text.stroke","stylers":[{"color":"#ffffff"}]}
+]
