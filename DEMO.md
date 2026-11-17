@@ -1,0 +1,16 @@
+# Today's college demonstration
+
+No Firebase or Maps key is needed for a demonstration on one phone/emulator. Open this folder in Android Studio, select **app**, choose your device and click **Run**. Allow camera and precise location when requested. Do not uninstall or clear the app between demonstrations: that removes its local accounts and reports.
+
+1. Create your first account with your college name. Signup opens **Login**; sign in to reach Home.
+2. Tap **Report** and post a lost bottle or notebook. Add a photo, description, private identifying detail and location. The public Lost board shows it. Search its title and view its detail page.
+3. Log out from Profile. Create and log in to a second account with the **same college name**. Tap the green **Found it** on that report and send a message.
+4. Open **Ownership checks** in the conversation. Share a proof photo. The on-device AI compares photo labels and readable text with the report photo and posts advisory clues. Share private color, mark and last-location answers.
+5. Switch back to the first account. Messages shows the request and exact conversation. Share your own evidence or identifying answers and review the second student's evidence. Each account confirms its own item check.
+6. Only after both checks, each account confirms the actual handover. The report moves to Reunited in Profile. The Found board supports the reverse workflow through **This is mine**.
+7. Show Scan using a clear photographed label or `demo/ocr-label.png` from this repository. Choose the image, review the recognized text, and use it in a lost report. On the emulator, drag the PNG onto the emulator to import it before opening the photo picker.
+8. Show Map and report location tagging. Without a Maps key the app shows a labelled pin preview and real GPS coordinates; with a key it uses Google Maps. Set a simulated position through emulator **Extended controls → Location**. A physical phone gives device GPS and camera capture.
+
+Camera/OCR cannot read lettering that is absent from the emulator camera scene. Use the supplied image, a printed label, a webcam, or a physical phone. No paid AI API is required.
+
+Different phones need Firebase. Live map tiles need a Google Maps key. Follow [SETUP.md](SETUP.md) when you have time; neither service is required for today's one-device walkthrough.

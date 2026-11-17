@@ -54,7 +54,7 @@ An emulator displays its simulated position. In the emulator's **Extended contro
 
 ```sh
 ./gradlew assembleDebug testDebugUnitTest lintDebug
-./gradlew connectedDebugAndroidTest
+./gradlew connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
 ```
 
-The connected tests require an unlocked emulator/device. The debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Service rules and cross-device Firebase behavior must be tested against your configured project before distributing the app.
+The connected tests require an unlocked emulator/device with both cameras available, Location enabled, and a supplied emulator location. The retention flag leaves the app installed afterward. For a same-device college walkthrough, use [DEMO.md](DEMO.md). The debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Service rules and cross-device Firebase behavior must be tested against your configured project before distributing the app.

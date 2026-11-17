@@ -1,9 +1,13 @@
 # Known limitations
 
-- Accounts exist only in this app's database. A second phone cannot see them.
-- Forgot password cannot send email. The screen says so and does not pretend otherwise.
-- Email addresses are stored and checked for shape. They are not verified with a mailbox.
-- Match notifications are saved in Room and are not shown in an inbox yet.
-- The claim comparison works in code and unit tests. The detail screen does not yet collect the private answer.
-- Google Maps is used only when `MAPS_API_KEY` is set in `local.properties`. The default map does not invent a campus.
-- Destructive migration from database version 2 drops the old sample board. That board was fictional.
+- Local mode shares data between accounts on the same installation. Different phones require configured Firebase; existing local accounts are not automatically converted to cloud accounts.
+- Firebase integration and service rules need validation against your configured project. No live cloud project was available for this pass.
+- Alerts are in-app and synchronize on connection. A terminated app does not receive background push notifications.
+- Campus membership is self-declared; email/password authentication does not verify institutional membership.
+- Live Google Maps needs a restricted SDK key. The unconfigured map is explicitly labelled as a pin preview.
+- GPS accuracy depends on hardware, permission and surroundings. Emulator coordinates are simulated. Physical-phone camera/GPS behavior remains to be checked.
+- OCR/image comparison gives clues, never ownership proof. Students must compare private details and inspect the physical item.
+- Automated checks used one Android 17 emulator. TalkBack, older devices and all tablet sizes have not been fully audited.
+- Local password recovery cannot send email. Configured Firebase provides email recovery.
+
+These are acceptable demonstration boundaries, not a claim of a production deployment. See [the demo guide](../DEMO.md).

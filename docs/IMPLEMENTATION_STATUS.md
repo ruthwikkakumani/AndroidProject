@@ -1,14 +1,5 @@
 # Implementation status
 
-Core local product is usable: an account, a campus name, and an empty real board.
+The local college-project workflow is implemented. Firebase and Google Maps integration is prepared with setup instructions; keys/project configuration were not supplied. Classroom scope is recorded in [DEMO.md](../DEMO.md).
 
-Not production-complete for multiple students on different phones. There is no server.
-
-| Area | State |
-|---|---|
-| Auth on this device | Implemented and exercised on the emulator |
-| Campus chosen by the student | Implemented and exercised |
-| Reporting, search, match score, camera text | Present from the previous build; reporting now requires a signed-in owner |
-| Private check storage and comparison | Implemented and unit-tested; detail-screen claim control is not wired |
-| Notifications rows | Written when a report is saved; no inbox screen |
-| Chat, admin, email reset, remote sync | Not implemented |
+The app builds and its essential automated checks cover authentication, reports, private conversations, evidence, two-sided return, camera, GPS and screen flows. See the final results in [QA_TEST_PLAN.md](QA_TEST_PLAN.md). No push or deployment was performed.

@@ -1,32 +1,7 @@
-# Bugs
+# Fixes and remaining checks
 
-## BUG-001 — Preset Mountain View campus
+Fixed startup authentication appearing before a saved session resolved; report routing that mixed lost/found actions; inbox navigation to the wrong recipient; direct reunion without both parties; missing private evidence flow; stale map marker coordinates; camera lifecycle/permission continuation; large image decoding; and inconsistent screen spacing/styles.
 
-- Screen: home, map, new report
-- Description: The app used a fixed Riverside label and the coordinates 37.422094, -122.083922.
-- Expected: The campus is the one the student enters. Location permission is optional.
-- Actual before fix: Hardcoded campus and automatic location snap.
-- Severity: P1
-- Root cause: `Campus` constants and `seedIfEmpty()`, plus a `LaunchedEffect` that called location on open.
-- Fix: Removed the launch seed and the automatic location call. Home shows the account campus name. Map pins exist only when the user adds one.
-- Test: Unit test that a place name is enough. Emulator account "North Campus" on the home screen.
-- Verification: Passed on Pixel 10a, 17 November 2026.
+Test runs now retain the installed app. Uninstalling/clearing data still removes local accounts by Android design.
 
-## BUG-002 — No real account
-
-- Screen: launch
-- Expected: Registration creates an account and login restores it.
-- Actual before fix: The board opened with no identity.
-- Severity: P1
-- Fix: Room accounts, salted PBKDF2 passwords, device session.
-- Test: Unit tests for rules and hashing. Emulator register, logout, login.
-- Verification: Passed. Home showed "Hello, Ada Lovelace" after login.
-
-## BUG-003 — Claim control missing on the detail screen
-
-- Screen: item detail
-- Expected: A finder-set private check can be answered from the report.
-- Actual: The hash is stored and compared in `ItemRepository.claim`, but the screen has no claim field yet.
-- Severity: P2
-- Fix: Not applied on the screen.
-- Verification: Open.
+Remaining external/device checks are listed in [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md). No claim is made that arbitrary bugs, untested devices or live cloud behavior are fully validated.

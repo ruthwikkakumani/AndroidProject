@@ -1,13 +1,14 @@
-# QA test plan
+# Verification
 
-## Executed this pass
+Final run passed: **15 unit tests, 17 connected emulator tests, and lintDebug**. The debug app and instrumentation APK built successfully. Automated checks used an Android 17 Pixel 10a emulator, including simulated GPS and camera scenes. Lint/build deprecation warnings do not prevent running the project.
 
-- `./gradlew :app:testDebugUnitTest` — 14 tests, 0 failures. Covers match scoring, feed filters, place-name validation without coordinates, account rules, password hashing, and private-check comparison.
-- `./gradlew :app:compileDebugAndroidTestKotlin` — device tests still compile. They were not re-run after the auth gate, because they set their own Compose content and do not launch the activity.
-- Emulator Pixel 10a: install, launch, welcome screen, create account for Ada Lovelace / ada@north.test / North Campus, home greeting and campus name, empty board, log out, log in, home restored. No crash in `AndroidRuntime`.
+```sh
+./gradlew testDebugUnitTest lintDebug
+./gradlew connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
+```
 
-## Still to run
+The installation-retention flag prevents the connected test runner from removing the app afterward. Use dedicated test devices and keep your presentation device's data intact. Tests use isolated Room databases or in-memory screen fixtures and do not seed student records into the main app.
 
-- Full report, camera, pin, claim, and notification path on the emulator.
-- Re-run `connectedDebugAndroidTest` after the auth gate (the previous 3 tests passed before this pass).
-- TalkBack, rotation, and a second screen size.
+Coverage: account rules/password hashes, filters/matching, explicit database migration, saved session after database reopen, signup-before-login, exact private thread recipients/unread alerts, evidence and both ownership/handover confirmations, queued-write coalescing, bundled OCR/image labeling, both camera directions, fresh Fused Location, board/report/detail/scan/profile/map screens and private conversation UI.
+
+Manual classroom flow: [DEMO.md](../DEMO.md). Remaining checks: live Firebase with two phones, restricted Google Maps key, physical camera/GPS, TalkBack and broader screen sizes.

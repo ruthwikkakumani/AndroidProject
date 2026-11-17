@@ -1,14 +1,7 @@
-# Screen inventory
+# Screens
 
-| Screen | What it does now |
-|---|---|
-| Welcome | FindIt Campus entry. Create account and Log in. |
-| Create account | Name, email, password, confirm password, campus name. Creates a local account or shows the validation error. |
-| Log in | Email, password, show/hide password, forgot password, create account. |
-| Forgot password | States that email delivery is not configured. Does not reset a password or sign in. |
-| Discover | Greeting from the account, campus name, search, lost/found filters, pulse, matches, reports. |
-| Map | Pins only for reports the user pinned, or the device fix after permission. Otherwise an empty explanation. No preset city. |
-| Scan | Camera preview, read photo, typed text, matches from on-device text. |
-| Mine | This account's reports, name, campus, log out. |
-| Report | Lost/found form. Place name is required. Map pin and private check are optional. |
-| Detail | Report fields, share, reunite, delete, match list. |
+Welcome, registration, login and account recovery precede the dashboard. Main tabs are Home, Map, Messages, Scan and Profile.
+
+Home has separate Lost/Found boards, search, categories and a filter sheet. Report entry has separate lost/found routes. Detail opens a conversation for other students and share/delete actions for the owner. Messages has exact private threads and unread alerts. Conversations contain message/photo bubbles and a draggable ownership sheet with proof, questions, both checks and handover. Scan reads photo text and creates report drafts. Profile displays account, connection state and active/reunited reports.
+
+The shared visual system uses ivory, navy, emerald, mint and periwinkle, original cutout illustrations, consistent spacing and native Material controls.

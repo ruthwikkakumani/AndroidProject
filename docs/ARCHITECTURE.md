@@ -1,14 +1,13 @@
 # Architecture
 
-FindIt Campus is one Android application module.
+One Kotlin Android application module uses Compose Material 3 screens, ViewModels, coroutines and lifecycle-aware StateFlow collection. Forms and drafts use SavedStateHandle/state hoisting; reusable cards, photo actions and stateless chat/inbox content keep layouts consistent.
 
-- UI: Jetpack Compose screens and a navigation graph. Signed-out users see welcome, registration, login, and the forgot-password explanation. Signed-in users see the board, map, scan, reports, and posting.
-- State: ViewModels. `SessionViewModel` reads the signed-in account. Report screens keep their own form state.
-- Accounts: Room table `accounts`. Passwords are PBKDF2-HMAC-SHA256 with a random salt. The signed-in id is one row in `device_session`.
-- Reports: Room tables `categories` and `items`. Each report stores `ownerId`. A map pin is stored only when the user asks for one (`hasCoordinates`). A found report may store a sealed private check, not the raw text, in `verificationSecret`.
-- Matching: `SmartMatchEngine` scores the other open report. Distance is ignored unless both reports have a real pin.
-- Text reading: ML Kit Latin recognizer, on device.
-- Location: Play services fused location and Geocoder, only after the user taps the location control.
-- Schema: database `campus-board.db`, version 3. Opening a version 2 database (the old sample board) is rebuilt with `fallbackToDestructiveMigration()` because that database was the hardcoded Mountain View sample set.
+Room database `campus-board.db` is version 6. Tables hold accounts, a device session, items, categories, private threads/messages, alerts and pending cloud writes. Explicit migrations preserve earlier records. Room Flow is the UI source of truth. Logout clears the device session; startup waits for its first resolved value before choosing authentication or the dashboard.
 
-There is no network API in this repository.
+Repositories enforce campus filtering, exact conversation participants, evidence requirements and two-sided verification/handover. Photo checks are advisory; only both physical-return confirmations change a report to Reunited. Passwords for local/offline login use salted PBKDF2.
+
+Bundled ML Kit Latin text recognition and image labeling provide genuine on-device AI. Text scanning searches reports; proof comparison combines labels/readable text and image clues. Deterministic search/ranking is not presented as a trained recommendation model.
+
+Optional programmatically configured Firebase supplies Auth, Firestore and Storage. Local writes enter an author-bound coalescing queue and retry after connection returns. Participant listeners feed remote changes back into Room. Configuration/rules are documented in [SETUP.md](../SETUP.md); live cloud behavior remains unverified without project credentials.
+
+CameraX binds camera use cases to lifecycle and releases them on disposal. Fused Location supplies fresh coordinates with measured accuracy; permission denial has an explicit UI state. Maps Compose renders live maps when configured; otherwise a labelled local pin preview is available.
