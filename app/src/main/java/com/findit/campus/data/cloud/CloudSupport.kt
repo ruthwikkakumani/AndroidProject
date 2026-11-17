@@ -38,7 +38,8 @@ class CloudServices(context: Context, enabled: Boolean = true) {
         BuildConfig.FIREBASE_PROJECT_ID.isNotBlank() &&
         BuildConfig.FIREBASE_STORAGE_BUCKET.isNotBlank()
     ) {
-        FirebaseApp.initializeApp(context, FirebaseOptions.Builder()
+        FirebaseApp.getApps(context).firstOrNull { it.name == "FindIt" }
+            ?: FirebaseApp.initializeApp(context, FirebaseOptions.Builder()
             .setApplicationId(BuildConfig.FIREBASE_APPLICATION_ID)
             .setApiKey(BuildConfig.FIREBASE_API_KEY)
             .setProjectId(BuildConfig.FIREBASE_PROJECT_ID)

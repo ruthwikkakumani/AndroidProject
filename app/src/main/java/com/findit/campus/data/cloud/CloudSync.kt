@@ -18,6 +18,7 @@ import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import java.io.File
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.channels.awaitClose
@@ -69,6 +70,8 @@ class CloudSync(private val cloud: CloudServices, private val db: FindItDatabase
                             withTimeout(30_000) { upload(write) }
                             db.syncDao().acknowledge(write.key, write.payload)
                             state.value = SyncState(true, true)
+                    } catch (timeout: TimeoutCancellationException) {
+                        state.value = SyncState(true, false, "Sync timed out. Your changes are saved locally and will retry.")
                     } catch (cancelled: CancellationException) { throw cancelled }
                     catch (error: Exception) {
                         FindItLog.e("Sync will retry", error)
