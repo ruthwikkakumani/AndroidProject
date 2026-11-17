@@ -12,3 +12,5 @@
 *.ap_
 *.aab
 output-metadata.json
+/app/google-services.json
+/.design/

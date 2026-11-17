@@ -5,6 +5,9 @@ import android.util.Log
 import com.findit.campus.ai.InsightEngine
 import com.findit.campus.ai.SmartMatchEngine
 import com.findit.campus.ai.TextScanner
+import com.findit.campus.ai.PhotoCheckEngine
+import com.findit.campus.data.cloud.CloudServices
+import com.findit.campus.data.cloud.CloudSync
 import com.findit.campus.data.FindItLog
 import com.findit.campus.data.AccountRepository
 import com.findit.campus.data.ChatRepository
@@ -22,11 +25,14 @@ class AppGraph(context: Application) {
     val database: FindItDatabase = FindItDatabase.create(context)
     val matcher = SmartMatchEngine()
     val insights = InsightEngine()
-    val repository = ItemRepository(database, matcher, insights)
-    val accounts = AccountRepository(database)
-    val chat = ChatRepository(database, repository)
-    val photos = PhotoStore(context)
+    val cloud = CloudServices(context)
+    val sync = CloudSync(cloud, database)
+    val accounts = AccountRepository(database, cloud)
+    val repository = ItemRepository(database, matcher, insights, accounts, sync)
+    val photos = PhotoStore(context, cloud)
     val scanner = TextScanner()
+    val checker = PhotoCheckEngine(scanner)
+    val chat = ChatRepository(database, repository, photos, checker, sync)
     val location = LocationDataSource(context)
 }
 
@@ -48,6 +54,7 @@ class FindItApplication : Application() {
             previous?.uncaughtException(thread, error)
         }
         graph = AppGraph(this)
+        graph.sync.start(scope, graph.accounts)
         scope.launch {
             runCatching { graph.repository.ensureCategories() }
                 .onFailure { FindItLog.e("Could not prepare the campus board", it) }

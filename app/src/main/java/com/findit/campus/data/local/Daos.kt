@@ -23,6 +23,9 @@ data class CategoryWithItems(
 
 @Dao
 interface CategoryDao {
+    @Query("SELECT * FROM categories WHERE id = :id")
+    suspend fun getById(id: Long): CategoryEntity?
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(category: CategoryEntity): Long
 
@@ -42,6 +45,12 @@ interface CategoryDao {
 
 @Dao
 interface ItemDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(item: ItemEntity)
+
+    @Query("SELECT * FROM items WHERE id = :id")
+    suspend fun getById(id: Long): ItemEntity?
+
     @Insert
     suspend fun insert(item: ItemEntity): Long
 

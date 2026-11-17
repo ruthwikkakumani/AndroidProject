@@ -8,6 +8,7 @@ import android.location.Address
 import android.location.Geocoder
 import android.os.Build
 import android.os.Looper
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.findit.campus.data.FindItLog
 import com.google.android.gms.location.LocationCallback
@@ -15,6 +16,7 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.tasks.CancellationTokenSource
 import java.util.Locale
 import kotlin.coroutines.resume
@@ -25,6 +27,8 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 
 data class DeviceFix(
     val latitude: Double,
@@ -41,25 +45,29 @@ class LocationDataSource(private val context: Context) {
         return fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED
     }
 
+    fun hasPrecisePermission(): Boolean = ContextCompat.checkSelfPermission(
+        context, Manifest.permission.ACCESS_FINE_LOCATION,
+    ) == PackageManager.PERMISSION_GRANTED
+
     suspend fun current(timeoutMillis: Long = 10_000): DeviceFix? {
         if (!hasPermission()) return null
-        return runCatching {
+        return try {
             withTimeout(timeoutMillis) {
                 readCurrent() ?: readLast()
             }
-        }.onFailure { error ->
-            FindItLog.e("Location fix failed", error)
-        }.getOrNull()
+        } catch (_: TimeoutCancellationException) { null }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (error: Exception) { FindItLog.e("Location fix failed", error); null }
     }
 
-    suspend fun placeLabel(latitude: Double, longitude: Double): String = runCatching {
-        if (!Geocoder.isPresent()) return@runCatching ""
+    suspend fun placeLabel(latitude: Double, longitude: Double): String = try {
+        if (!Geocoder.isPresent()) return ""
         val geocoder = Geocoder(context, Locale.getDefault())
         val address = withTimeout(8_000) { reverse(geocoder, latitude, longitude) }
         address?.getAddressLine(0).orEmpty()
-    }.onFailure { error ->
-        FindItLog.e("Place lookup failed", error)
-    }.getOrDefault("")
+    } catch (_: TimeoutCancellationException) { "" }
+    catch (cancelled: CancellationException) { throw cancelled }
+    catch (error: Exception) { FindItLog.e("Place lookup failed", error); "" }
 
     @SuppressLint("MissingPermission")
     fun updates(): Flow<DeviceFix> = callbackFlow {
@@ -84,7 +92,7 @@ class LocationDataSource(private val context: Context) {
                 }
             }
         }
-        client.requestLocationUpdates(request, callback, Looper.getMainLooper())
+        client.requestLocationUpdates(request, callback, Looper.getMainLooper()).addOnFailureListener { close(it) }
         awaitClose { client.removeLocationUpdates(callback) }
     }
 
@@ -92,7 +100,11 @@ class LocationDataSource(private val context: Context) {
     private suspend fun readCurrent(): DeviceFix? = suspendCancellableCoroutine { continuation ->
         val token = CancellationTokenSource()
         continuation.invokeOnCancellation { token.cancel() }
-        client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, token.token)
+        val request = CurrentLocationRequest.Builder()
+            .setPriority(if (hasPrecisePermission()) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY)
+            .setMaxUpdateAgeMillis(0)
+            .build()
+        client.getCurrentLocation(request, token.token)
             .addOnSuccessListener { location ->
                 if (!continuation.isActive) return@addOnSuccessListener
                 continuation.resume(
@@ -112,7 +124,8 @@ class LocationDataSource(private val context: Context) {
         client.lastLocation
             .addOnSuccessListener { location ->
                 if (!continuation.isActive) return@addOnSuccessListener
-                continuation.resume(location?.let { DeviceFix(it.latitude, it.longitude, it.accuracy) })
+                val fresh = location?.takeIf { (SystemClock.elapsedRealtimeNanos() - it.elapsedRealtimeNanos) / 1_000_000 <= 60_000 }
+                continuation.resume(fresh?.let { DeviceFix(it.latitude, it.longitude, it.accuracy) })
             }
             .addOnFailureListener { error ->
                 FindItLog.e("Last location failed", error)

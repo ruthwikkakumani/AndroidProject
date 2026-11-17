@@ -1,12 +1,29 @@
 package com.findit.campus.data.local
 
 import androidx.room.Dao
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import androidx.room.OnConflictStrategy
 import kotlinx.coroutines.flow.Flow
+
+data class ConversationSummary(
+    val id: Long,
+    val itemId: Long,
+    val title: String,
+    val personName: String,
+    val photoPath: String?,
+    val preview: String?,
+    val updatedAt: Long,
+    val unread: Int,
+    val ownerChecked: Boolean,
+    val guestChecked: Boolean,
+    val ownerReturned: Boolean,
+    val guestReturned: Boolean,
+)
 
 @Entity(
     tableName = "threads",
@@ -21,6 +38,10 @@ data class ThreadEntity(
     val createdAt: Long,
     val ownerChecked: Boolean = false,
     val guestChecked: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val ownerReturned: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val guestReturned: Boolean = false,
+    @ColumnInfo(defaultValue = "''") val ownerUid: String = "",
+    @ColumnInfo(defaultValue = "''") val guestUid: String = "",
 )
 
 @Entity(tableName = "messages")
@@ -35,6 +56,34 @@ data class MessageEntity(
 
 @Dao
 interface ChatDao {
+    @Query("SELECT * FROM messages WHERE id = :id")
+    suspend fun getMessage(id: Long): MessageEntity?
+
+    @Query("""
+        SELECT t.id, t.itemId, COALESCE(i.title, 'Report removed') AS title,
+        COALESCE(a.displayName, 'Campus student') AS personName, i.photoPath,
+        (SELECT body FROM messages WHERE threadId = t.id ORDER BY createdAt DESC, id DESC LIMIT 1) AS preview,
+        COALESCE((SELECT MAX(createdAt) FROM messages WHERE threadId = t.id), t.createdAt) AS updatedAt,
+        (SELECT COUNT(*) FROM notifications WHERE threadId = t.id AND accountId = :accountId AND read = 0) AS unread,
+        t.ownerChecked, t.guestChecked, t.ownerReturned, t.guestReturned
+        FROM threads t LEFT JOIN items i ON t.itemId = i.id
+        LEFT JOIN accounts a ON a.id = CASE WHEN t.ownerId = :accountId THEN t.guestId ELSE t.ownerId END
+        WHERE t.ownerId = :accountId OR t.guestId = :accountId ORDER BY updatedAt DESC
+    """)
+    fun observeConversations(accountId: Long): Flow<List<ConversationSummary>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertThread(thread: ThreadEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertMessage(message: MessageEntity)
+
+    @Query("UPDATE threads SET ownerReturned = :returned WHERE id = :id")
+    suspend fun setOwnerReturned(id: Long, returned: Boolean)
+
+    @Query("UPDATE threads SET guestReturned = :returned WHERE id = :id")
+    suspend fun setGuestReturned(id: Long, returned: Boolean)
+
     @Insert
     suspend fun insertThread(thread: ThreadEntity): Long
 

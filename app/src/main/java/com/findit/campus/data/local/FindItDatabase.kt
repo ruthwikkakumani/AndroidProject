@@ -15,8 +15,9 @@ import androidx.room.TypeConverters
         NotificationEntity::class,
         ThreadEntity::class,
         MessageEntity::class,
+        PendingWrite::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -28,6 +29,7 @@ abstract class FindItDatabase : RoomDatabase() {
     abstract fun accountDao(): AccountDao
 
     abstract fun chatDao(): ChatDao
+    abstract fun syncDao(): SyncDao
 
     companion object {
         @Volatile
@@ -39,8 +41,10 @@ abstract class FindItDatabase : RoomDatabase() {
                     context.applicationContext,
                     FindItDatabase::class.java,
                     "campus-board.db",
-                ).addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_4_5)
-                    .fallbackToDestructiveMigration()
+                ).addMigrations(
+                    Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3,
+                    Migrations.MIGRATION_3_4, Migrations.MIGRATION_4_5, Migrations.MIGRATION_5_6,
+                )
                     .build()
                     .also { instance = it }
             }

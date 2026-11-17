@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function profile() { return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data; }
+    function campus(data) { return signedIn() && data.campusKey == profile().campusKey; }
+    function participant(data) { return signedIn() && request.auth.uid in data.participantUids; }
+    function completeHandover(data) {
+      let t = get(/databases/$(database)/documents/threads/$(string(data.returnThreadId))).data;
+      return participant(t) && t.itemId == data.id && t.ownerChecked && t.guestChecked && t.ownerReturned && t.guestReturned;
+    }
+    match /profiles/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || campus(resource.data));
+      allow create: if signedIn() && uid == request.auth.uid && request.resource.data.uid == uid
+        && request.resource.data.keys().hasOnly(['uid', 'localId', 'displayName', 'campusName', 'campusKey'])
+        && request.resource.data.localId is int && request.resource.data.localId > 0
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() >= 2 && request.resource.data.displayName.size() <= 80
+        && request.resource.data.campusKey is string && request.resource.data.campusKey.size() >= 2 && request.resource.data.campusKey.size() <= 120;
+      // Campus membership and identifiers remain stable after signup.
+      allow update, delete: if false;
+    }
+    match /items/{itemId} {
+      allow read: if campus(resource.data);
+      allow create: if campus(request.resource.data)
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerId == profile().localId
+        && itemId == string(request.resource.data.id)
+        && validItem(request.resource.data) && request.resource.data.status == 'OPEN'
+        && request.resource.data.deleted == false;
+      allow update: if campus(resource.data) && validItem(request.resource.data)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.campusKey == resource.data.campusKey
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          (resource.data.ownerUid == request.auth.uid
+            && (request.resource.data.status == resource.data.status || completeHandover(request.resource.data)))
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedAt', 'returnThreadId'])
+            && request.resource.data.status == 'REUNITED' && completeHandover(request.resource.data))
+        );
+      allow delete: if false; // Tombstones synchronize a removal without losing pending conversations.
+      function validItem(d) {
+        return d.keys().hasOnly(['id', 'title', 'description', 'category', 'type', 'status', 'latitude', 'longitude',
+          'placeLabel', 'zoneName', 'photoPath', 'scannedText', 'dominantColor', 'createdAt', 'resolvedAt',
+          'ownerId', 'ownerUid', 'campusKey', 'hasCoordinates', 'deleted', 'returnThreadId'])
+          && d.title is string && d.title.size() >= 3 && d.title.size() <= 100
+          && d.description is string && d.description.size() <= 2000
+          && d.type in ['LOST', 'FOUND'] && d.status in ['OPEN', 'REUNITED']
+          && d.latitude is number && d.latitude >= -90 && d.latitude <= 90
+          && d.longitude is number && d.longitude >= -180 && d.longitude <= 180
+          && d.hasCoordinates is bool && d.deleted is bool;
+      }
+    }
+    match /threads/{threadId} {
+      allow read: if participant(resource.data);
+      allow create: if signedIn() && request.resource.data.guestUid == request.auth.uid
+        && request.resource.data.guestId == profile().localId
+        && threadId == string(request.resource.data.id)
+        && request.resource.data.participantUids == [request.resource.data.ownerUid, request.auth.uid]
+        && request.resource.data.ownerUid != request.auth.uid
+        && request.resource.data.keys().hasOnly(['id', 'itemId', 'ownerId', 'guestId', 'ownerUid', 'guestUid',
+          'participantUids', 'status', 'createdAt', 'ownerChecked', 'guestChecked', 'ownerReturned', 'guestReturned'])
+        && !request.resource.data.ownerChecked && !request.resource.data.ownerReturned && !request.resource.data.guestReturned
+        && validSource(request.resource.data);
+      allow update: if participant(resource.data)
+        && ((request.auth.uid == resource.data.ownerUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerChecked', 'ownerReturned'])
+          && request.resource.data.ownerChecked is bool && request.resource.data.ownerReturned is bool
+          && (!resource.data.ownerChecked || request.resource.data.ownerChecked)
+          && (!resource.data.ownerReturned || request.resource.data.ownerReturned)
+          && (!request.resource.data.ownerReturned || (resource.data.guestChecked && request.resource.data.ownerChecked)))
+        || (request.auth.uid == resource.data.guestUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guestChecked', 'guestReturned'])
+          && request.resource.data.guestChecked is bool && request.resource.data.guestReturned is bool
+          && (!resource.data.guestChecked || request.resource.data.guestChecked)
+          && (!resource.data.guestReturned || request.resource.data.guestReturned)
+          && (!request.resource.data.guestReturned || (resource.data.ownerChecked && request.resource.data.guestChecked))));
+      allow delete: if false;
+      function validSource(d) {
+        let item = get(/databases/$(database)/documents/items/$(string(d.itemId))).data;
+        return campus(item) && !item.deleted && item.status == 'OPEN'
+          && item.ownerUid == d.ownerUid && item.ownerId == d.ownerId;
+      }
+    }
+    match /messages/{messageId} {
+      allow read: if participant(resource.data);
+      allow create: if signedIn() && messageId == string(request.resource.data.id)
+        && request.resource.data.senderUid == request.auth.uid
+        && request.resource.data.senderId == profile().localId
+        && request.resource.data.body is string && request.resource.data.body.size() <= 1000
+        && request.resource.data.keys().hasOnly(['id', 'threadId', 'senderId', 'senderUid', 'body', 'photoPath', 'createdAt', 'participantUids'])
+        && validThread(request.resource.data);
+      // Idempotent retry of an already written message, without editing history.
+      allow update: if signedIn() && resource.data.senderUid == request.auth.uid && request.resource.data == resource.data;
+      allow delete: if false;
+      function validThread(d) {
+        let t = get(/databases/$(database)/documents/threads/$(string(d.threadId))).data;
+        return participant(t) && d.participantUids == t.participantUids;
+      }
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

@@ -18,7 +18,11 @@ class TextScanner {
     suspend fun read(bitmap: Bitmap): String = withContext(Dispatchers.Default) {
         withTimeout(20_000) {
             suspendCancellableCoroutine { continuation ->
-                recognizer.process(InputImage.fromBitmap(bitmap, 0))
+                // ML tasks can outlive a cancelled coroutine. Give the task its own bitmap lifetime.
+                val input = bitmap.copy(Bitmap.Config.ARGB_8888, false)
+                val task = try { recognizer.process(InputImage.fromBitmap(input, 0)) }
+                catch (error: Exception) { input.recycle(); throw error }
+                task.addOnCompleteListener { input.recycle() }
                     .addOnSuccessListener { result ->
                         val text = result.text.orEmpty().trim()
                         FindItLog.i("Read ${text.length} characters from a photo")
@@ -28,6 +32,7 @@ class TextScanner {
                         FindItLog.e("Text reading failed", error)
                         if (continuation.isActive) continuation.resumeWithException(error)
                     }
+                    .addOnCanceledListener { continuation.cancel() }
             }
         }
     }

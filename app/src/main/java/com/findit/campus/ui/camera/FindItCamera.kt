@@ -2,6 +2,7 @@ package com.findit.campus.ui.camera
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Matrix
 import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -16,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -38,8 +40,17 @@ class CameraSession(useFront: Boolean) {
             ContextCompat.getMainExecutor(context),
             object : ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(image: ImageProxy) {
-                    val bitmap = runCatching { image.toBitmap() }.getOrNull()
-                    image.close()
+                    val bitmap = try {
+                        val source = image.toBitmap()
+                        val rotation = image.imageInfo.rotationDegrees
+                        if (rotation == 0) source else {
+                            val rotated = Bitmap.createBitmap(source, 0, 0, source.width, source.height,
+                                Matrix().apply { postRotate(rotation.toFloat()) }, true)
+                            if (rotated !== source) source.recycle()
+                            rotated
+                        }
+                    } catch (error: Exception) { FindItLog.e("Photo decoding failed", error); null }
+                    finally { image.close() }
                     if (bitmap != null) onResult(bitmap) else onError("Could not read that photo.")
                 }
 
@@ -61,15 +72,21 @@ fun FindItCameraPreview(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var request by remember(session) { mutableStateOf<SurfaceRequest?>(null) }
+    val unavailable by rememberUpdatedState(onUnavailable)
 
     DisposableEffect(lifecycleOwner, session) {
         val future = ProcessCameraProvider.getInstance(context)
         val executor = ContextCompat.getMainExecutor(context)
+        var active = true
+        session.preview.setSurfaceProvider(executor) { surfaceRequest ->
+            if (active) request = surfaceRequest else surfaceRequest.willNotProvideSurface()
+        }
         future.addListener(
             {
+                if (!active) return@addListener
                 runCatching {
                     val provider = future.get()
-                    provider.unbindAll()
+                    provider.unbind(session.preview, session.imageCapture)
                     provider.bindToLifecycle(
                         lifecycleOwner,
                         session.selector,
@@ -78,21 +95,17 @@ fun FindItCameraPreview(
                     )
                 }.onFailure { error ->
                     FindItLog.e("Camera bind failed", error)
-                    onUnavailable("This camera is not available right now.")
+                    unavailable("This camera is not available right now.")
                 }
             },
             executor,
         )
         onDispose {
+            active = false
+            session.preview.setSurfaceProvider(null)
             runCatching {
-                if (future.isDone) future.get().unbindAll()
+                if (future.isDone) future.get().unbind(session.preview, session.imageCapture)
             }
-        }
-    }
-
-    LaunchedEffect(session) {
-        session.preview.setSurfaceProvider(ContextCompat.getMainExecutor(context)) { surfaceRequest ->
-            request = surfaceRequest
         }
     }
 

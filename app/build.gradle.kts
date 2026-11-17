@@ -13,6 +13,7 @@ val localProperties = Properties().apply {
     }
 }
 val mapsApiKey = localProperties.getProperty("MAPS_API_KEY", "")
+fun String.buildConfigLiteral() = "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
 android {
     namespace = "com.findit.campus"
@@ -27,8 +28,11 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
+        buildConfigField("String", "MAPS_API_KEY", mapsApiKey.buildConfigLiteral())
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+        listOf("FIREBASE_APPLICATION_ID", "FIREBASE_API_KEY", "FIREBASE_PROJECT_ID", "FIREBASE_STORAGE_BUCKET").forEach { key ->
+            buildConfigField("String", key, localProperties.getProperty(key, "").buildConfigLiteral())
+        }
     }
 
     buildTypes {
@@ -50,6 +54,8 @@ android {
         compose = true
         buildConfig = true
     }
+
+    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
 
     packaging {
         resources {
@@ -104,6 +110,11 @@ dependencies {
     implementation(libs.play.services.maps)
     implementation(libs.maps.compose)
     implementation(libs.mlkit.text)
+    implementation(libs.mlkit.label)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.storage)
     implementation(libs.palette)
 
     testImplementation(libs.junit)

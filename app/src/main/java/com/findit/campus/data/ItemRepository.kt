@@ -9,6 +9,9 @@ import com.findit.campus.data.local.ItemEntity
 import com.findit.campus.auth.secretMatches
 import com.findit.campus.data.local.ItemWithCategory
 import com.findit.campus.data.local.NotificationEntity
+import com.findit.campus.data.cloud.CloudSync
+import com.findit.campus.data.cloud.campusKey
+import com.findit.campus.data.cloud.newId
 import com.findit.campus.model.Item
 import com.findit.campus.model.ItemStatus
 import com.findit.campus.model.ItemType
@@ -19,25 +22,37 @@ import com.findit.campus.ui.post.toEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 
 class ItemRepository(
     private val database: FindItDatabase,
     private val matcher: SmartMatchEngine,
     private val insights: InsightEngine,
+    private val accountRepository: AccountRepository,
+    private val sync: CloudSync,
 ) {
     private val items = database.itemDao()
     private val categories = database.categoryDao()
     private val accounts = database.accountDao()
 
-    fun observeAll(): Flow<List<Item>> = items.observeAll().map { rows -> rows.map { it.toItem() } }
+    fun observeAll(): Flow<List<Item>> = scoped(items.observeAll())
 
     fun observeMine(ownerId: Long): Flow<List<Item>> =
         items.observeMine(ownerId).map { rows -> rows.map { it.toItem() } }
 
-    fun observeItem(id: Long): Flow<Item?> = items.observeById(id).map { row -> row?.toItem() }
+    fun observeItem(id: Long): Flow<Item?> = combine(items.observeById(id), accountRepository.observeAccount()) { row, account ->
+        row?.takeIf { account != null && it.item.campusKey == campusKey(account.campusName) }?.toItem()
+    }
 
     fun observeSearch(query: String): Flow<List<Item>> =
-        items.observeSearch(escapeLike(query)).map { rows -> rows.map { it.toItem() } }
+        scoped(items.observeSearch(escapeLike(query)))
+
+    private fun scoped(source: Flow<List<ItemWithCategory>>): Flow<List<Item>> =
+        combine(source, accountRepository.observeAccount()) { rows, account ->
+            if (account == null) emptyList() else rows.filter {
+                it.item.campusKey == campusKey(account.campusName)
+            }.map { it.toItem() }
+        }
 
     fun observeCategoryNames(): Flow<List<String>> = categories.observeNames()
 
@@ -49,9 +64,13 @@ class ItemRepository(
     }
 
     suspend fun add(form: PostForm, ownerId: Long): Long = database.withTransaction {
+        val account = accounts.getById(ownerId) ?: error("Sign in before posting.")
         val categoryId = categories.findByName(form.category)?.id
             ?: categories.insert(CategoryEntity(name = form.category, symbol = "other"))
-        val id = items.insert(form.toEntity(categoryId, ownerId))
+        val id = newId()
+        items.insert(form.toEntity(categoryId, ownerId).copy(id = id,
+            campusKey = campusKey(account.campusName), ownerUid = account.remoteUid.orEmpty()))
+        sync.queueItem(id)
         FindItLog.i("Posted ${form.type.name} #$id at ${form.zoneName}")
         notifyMatches(id, ownerId)
         id
@@ -66,14 +85,13 @@ class ItemRepository(
             if (!secretMatches(answer, secret)) {
                 return "That detail does not match the private check."
             }
-            markReunited(itemId)
             notify(
                 accountId = item.ownerId,
                 title = "Private check matched",
                 body = "A claim matched the private detail on ${item.title}.",
                 itemId = itemId,
             )
-            return "The private check matched. The report is marked returned."
+            return "The private detail matched. Check the item together in Messages before confirming handover."
         }
         notify(
             accountId = item.ownerId,
@@ -85,7 +103,8 @@ class ItemRepository(
     }
 
     private suspend fun notifyMatches(itemId: Long, ownerId: Long) {
-        val all = items.listAll().map { it.toItem() }
+        val key = items.getById(itemId)?.campusKey ?: return
+        val all = items.listAll().filter { it.item.campusKey == key }.map { it.toItem() }
         val posted = all.firstOrNull { it.id == itemId } ?: return
         val matches = matchesFor(posted, all)
         matches.forEach { match ->
@@ -123,12 +142,24 @@ class ItemRepository(
         )
     }
 
-    suspend fun markReunited(id: Long) {
+    suspend fun markReunited(id: Long, returnThreadId: Long? = null) {
+        val account = accountRepository.observeAccount().first() ?: error("Sign in to confirm handover.")
+        val thread = returnThreadId?.let { database.chatDao().getThread(it) }
+        require(thread != null && thread.itemId == id &&
+            (account.id == thread.ownerId || account.id == thread.guestId) &&
+            thread.ownerChecked && thread.guestChecked && thread.ownerReturned && thread.guestReturned) {
+            "Both students must verify ownership and confirm the handover in Messages."
+        }
         items.updateStatus(id, ItemStatus.REUNITED, System.currentTimeMillis())
+        sync.queueItem(id, returnThreadId = returnThreadId)
         FindItLog.i("Reunited #$id")
     }
 
     suspend fun delete(id: Long) {
+        val account = accountRepository.observeAccount().first() ?: return
+        val item = items.getById(id) ?: return
+        require(item.ownerId == account.id) { "Only the report owner can remove it." }
+        sync.queueItem(id, deleted = true)
         items.deleteById(id)
         FindItLog.i("Removed #$id")
     }

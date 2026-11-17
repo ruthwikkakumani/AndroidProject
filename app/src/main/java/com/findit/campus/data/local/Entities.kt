@@ -1,6 +1,7 @@
 package com.findit.campus.data.local
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -54,4 +55,6 @@ data class ItemEntity(
     val ownerId: Long = 0,
     val hasCoordinates: Boolean = true,
     val verificationSecret: String? = null,
+    @ColumnInfo(defaultValue = "''") val campusKey: String = "",
+    @ColumnInfo(defaultValue = "''") val ownerUid: String = "",
 )

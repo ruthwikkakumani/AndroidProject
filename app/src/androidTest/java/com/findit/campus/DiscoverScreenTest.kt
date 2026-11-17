@@ -1,5 +1,6 @@
 package com.findit.campus
 
+import androidx.compose.runtime.*
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -46,10 +47,12 @@ class DiscoverScreenTest {
     fun searchFieldAcceptsAQuery() {
         var query = ""
         rule.setContent {
+            var search by remember { mutableStateOf("") }
             FindItTheme {
                 DiscoverScreen(
                     state = HomeUiState(
                         loading = false,
+                        query = search,
                         pulse = PulseInsight(
                             headline = "Bottles turn up most often around Library.",
                             detail = "2 open reports",
@@ -60,7 +63,7 @@ class DiscoverScreenTest {
                         items = listOf(sample()),
                     ),
                     expanded = false,
-                    onQuery = { query = it },
+                    onQuery = { query = it; search = it },
                     onType = {},
                     onOpenOnly = {},
                     onCategory = {},

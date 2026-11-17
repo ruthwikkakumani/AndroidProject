@@ -10,11 +10,14 @@ import java.io.FileOutputStream
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.findit.campus.data.cloud.CloudServices
+import com.findit.campus.data.cloud.awaitResult
+import java.util.UUID
 
-class PhotoStore(private val context: Context) {
+class PhotoStore(private val context: Context, private val cloud: CloudServices) {
     suspend fun save(bitmap: Bitmap): String = withContext(Dispatchers.IO) {
         val dir = File(context.filesDir, "photos").apply { mkdirs() }
-        val file = File(dir, "item-${System.currentTimeMillis()}.jpg")
+        val file = File(dir, "item-${UUID.randomUUID()}.jpg")
         FileOutputStream(file).use { stream ->
             bitmap.compress(Bitmap.CompressFormat.JPEG, 90, stream)
         }
@@ -22,6 +25,14 @@ class PhotoStore(private val context: Context) {
     }
 
     suspend fun loadDisplay(path: String, maxSide: Int = 900): Bitmap? = withContext(Dispatchers.IO) {
+        if (path.startsWith("gs://")) {
+            val storage = cloud.storage ?: return@withContext null
+            val bytes = storage.getReferenceFromUrl(path).getBytes(8L * 1024 * 1024).awaitResult()
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return@withContext null
+            val scaled = scaleDown(bitmap, maxSide)
+            if (scaled !== bitmap) bitmap.recycle()
+            return@withContext scaled
+        }
         val file = File(path)
         if (!file.exists()) return@withContext null
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -36,7 +47,11 @@ class PhotoStore(private val context: Context) {
     suspend fun readPicker(uri: Uri): Bitmap? = withContext(Dispatchers.IO) {
         context.contentResolver.openInputStream(uri)?.use { stream ->
             BitmapFactory.decodeStream(stream)
-        }?.let { scaleDown(it, 1280) }
+        }?.let { bitmap ->
+            val scaled = scaleDown(bitmap, 1280)
+            if (scaled !== bitmap) bitmap.recycle()
+            scaled
+        }
     }
 }
 
