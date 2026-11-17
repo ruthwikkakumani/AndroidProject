@@ -38,6 +38,7 @@ fun GoogleCampusMap(
     modifier: Modifier = Modifier,
     trail: List<TrailPoint> = emptyList(),
     recenterRequest: Int = 0,
+    onMapLoaded: () -> Unit = {},
 ) {
     val campusAnchor = items.firstOrNull { it.hasCoordinates }?.let { LatLng(it.latitude, it.longitude) }
     val anchor = campusAnchor
@@ -48,6 +49,7 @@ fun GoogleCampusMap(
         position = CameraPosition.fromLatLngZoom(anchor, 16f)
     }
     var following by remember { mutableStateOf(focus == MapFocus.NEAR_ME) }
+    var mapReady by remember { mutableStateOf(false) }
     LaunchedEffect(camera) {
         snapshotFlow { camera.cameraMoveStartedReason }.collect { reason ->
             if (reason == CameraMoveStartedReason.GESTURE) following = false
@@ -59,7 +61,8 @@ fun GoogleCampusMap(
         } else {
             campusAnchor ?: anchor
         }
-    LaunchedEffect(focus, recenterRequest, campusAnchor, if (following) target else null) {
+    LaunchedEffect(mapReady, focus, recenterRequest, campusAnchor, if (following) target else null) {
+        if (!mapReady) return@LaunchedEffect
         if (focus == MapFocus.CAMPUS || following) {
             camera.animate(CameraUpdateFactory.newLatLngZoom(target, if (focus == MapFocus.NEAR_ME) 17f else 16f))
         }
@@ -73,6 +76,10 @@ fun GoogleCampusMap(
         cameraPositionState = camera,
         properties = MapProperties(isMyLocationEnabled = myLocationEnabled, mapStyleOptions = style),
         uiSettings = MapUiSettings(myLocationButtonEnabled = false, zoomControlsEnabled = false, mapToolbarEnabled = false),
+        onMapLoaded = {
+            mapReady = true
+            onMapLoaded()
+        },
     ) {
         user?.takeIf { it.accuracyMeters.isFinite() && it.accuracyMeters > 0 }?.let {
             Circle(center = LatLng(it.latitude, it.longitude), radius = it.accuracyMeters.toDouble(),

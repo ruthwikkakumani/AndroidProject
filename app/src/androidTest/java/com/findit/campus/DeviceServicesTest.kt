@@ -19,6 +19,8 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assume.assumeTrue
+import java.io.File
 
 /** Runs against a camera-capable emulator/device with location services enabled. */
 class DeviceServicesTest {
@@ -69,5 +71,25 @@ class DeviceServicesTest {
             assertEquals(current.latitude, saved.latitude, 0.000001)
             assertEquals(current.longitude, saved.longitude, 0.000001)
         } finally { db.close() }
+    }
+
+    @Test fun configuredGoogleMapsLoadsLiveTiles() {
+        assumeTrue("A configured Maps key is required for this live check", BuildConfig.MAPS_API_KEY.isNotBlank())
+        val fix = runBlocking { LocationDataSource(context).current(15_000) }
+        assertNotNull("The map check needs a device location", fix)
+        val loaded = java.util.concurrent.atomic.AtomicBoolean(false)
+        rule.setContent {
+            com.findit.campus.ui.theme.FindItTheme {
+                com.findit.campus.ui.map.GoogleCampusMap(
+                    items = emptyList(), user = fix, focus = com.findit.campus.ui.map.MapFocus.NEAR_ME,
+                    selectedId = null, myLocationEnabled = true, onSelect = {},
+                    modifier = Modifier.fillMaxSize(), onMapLoaded = { loaded.set(true) },
+                )
+            }
+        }
+        rule.waitUntil(45_000) { loaded.get() }
+        val file = File(context.getExternalFilesDir(null), "quality-screens/google-map-live.png")
+        file.parentFile?.mkdirs()
+        file.outputStream().use { instrumentation.uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 }
