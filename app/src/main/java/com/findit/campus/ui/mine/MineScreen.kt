@@ -42,6 +42,7 @@ fun MineScreen(state: MineUiState, onOpen: (Long) -> Unit, accountName: String =
             }
         } }
         item { Notice(state.syncNote) }
+        item { NotificationPreference() }
         item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("My reports", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             TextButton({ help = true }) { Text("How it works") }

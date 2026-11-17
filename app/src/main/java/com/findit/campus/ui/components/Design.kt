@@ -41,12 +41,16 @@ fun Illustration(@DrawableRes resource: Int, modifier: Modifier = Modifier) {
 
 @Composable
 fun IllustratedHeading(title: String, body: String, @DrawableRes art: Int, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1.25f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
-            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val narrow = maxWidth < 340.dp
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(if (narrow) 2f else 1.25f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(title, style = if (narrow) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.semantics { heading() })
+                Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Illustration(art, Modifier.weight(1f).height(if (narrow) 112.dp else 148.dp))
         }
-        Illustration(art, Modifier.weight(1f).height(148.dp))
     }
 }
 

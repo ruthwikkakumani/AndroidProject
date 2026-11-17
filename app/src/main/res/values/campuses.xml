@@ -1,0 +1,104 @@
+<resources>
+    <string-array name="campus_names">
+        <item>IIT Madras — Chennai</item>
+        <item>IIT Bombay — Mumbai</item>
+        <item>IIT Delhi — New Delhi</item>
+        <item>IIT Hyderabad — Sangareddy</item>
+        <item>IIT Kanpur</item>
+        <item>IIT Kharagpur</item>
+        <item>IIT Roorkee</item>
+        <item>IIT Guwahati</item>
+        <item>IIT Tirupati</item>
+        <item>IIT Palakkad</item>
+        <item>IIT Bhubaneswar</item>
+        <item>IIT Indore</item>
+        <item>IIT Patna</item>
+        <item>IIT Mandi</item>
+        <item>IIT Jodhpur</item>
+        <item>IIT Ropar</item>
+        <item>IIT Gandhinagar</item>
+        <item>IIT Goa</item>
+        <item>IIT Dharwad</item>
+        <item>IIT Dhanbad</item>
+        <item>IIT Bhilai</item>
+        <item>IIT Jammu</item>
+        <item>NIT Tiruchirappalli</item>
+        <item>NIT Warangal</item>
+        <item>NIT Karnataka — Surathkal</item>
+        <item>NIT Calicut</item>
+        <item>NIT Rourkela</item>
+        <item>NIT Delhi</item>
+        <item>NIT Silchar</item>
+        <item>NIT Durgapur</item>
+        <item>NIT Kurukshetra</item>
+        <item>NIT Jalandhar</item>
+        <item>NIT Hamirpur</item>
+        <item>NIT Patna</item>
+        <item>Anna University — Chennai</item>
+        <item>VIT — Vellore</item>
+        <item>VIT — Chennai</item>
+        <item>VIT-AP — Amaravati</item>
+        <item>VIT — Bhopal</item>
+        <item>SRM IST — Kattankulathur</item>
+        <item>SRM IST — Ramapuram</item>
+        <item>SRM University-AP — Amaravati</item>
+        <item>SRM University — Sonepat</item>
+        <item>Sathyabama — Chennai</item>
+        <item>Saveetha Engineering College — Chennai</item>
+        <item>Hindustan Institute — Chennai</item>
+        <item>Madras Christian College — Chennai</item>
+        <item>Loyola College — Chennai</item>
+        <item>PSG College of Technology — Coimbatore</item>
+        <item>Amrita — Coimbatore</item>
+        <item>Amrita — Bengaluru</item>
+        <item>Amrita — Amritapuri</item>
+        <item>SSN College of Engineering — Kalavakkam</item>
+        <item>Manipal Institute of Technology — Manipal</item>
+        <item>Christ University — Bengaluru</item>
+        <item>RV College of Engineering — Bengaluru</item>
+        <item>PES University — Bengaluru</item>
+        <item>BITS Pilani — Pilani</item>
+        <item>BITS Pilani — Goa</item>
+        <item>BITS Pilani — Hyderabad</item>
+        <item>Osmania University — Hyderabad</item>
+        <item>JNTU Hyderabad</item>
+        <item>JNTU Kakinada</item>
+        <item>KL University — Vaddeswaram</item>
+        <item>Andhra University — Visakhapatnam</item>
+        <item>Sri Venkateswara University — Tirupati</item>
+        <item>University of Delhi</item>
+        <item>Jadavpur University — Kolkata</item>
+        <item>University of Calcutta — Kolkata</item>
+        <item>Savitribai Phule Pune University</item>
+        <item>University of Mumbai</item>
+        <item>IISc — Bengaluru</item>
+        <item>IIIT Hyderabad</item>
+        <item>IIIT Bangalore</item>
+        <item>IIIT Delhi</item>
+        <item>IIIT Sri City</item>
+        <item>IIIT Kottayam</item>
+        <item>IIIT Allahabad</item>
+        <item>DTU — New Delhi</item>
+        <item>NSUT — New Delhi</item>
+        <item>Jamia Millia Islamia — New Delhi</item>
+        <item>Chandigarh University — Mohali</item>
+        <item>Lovely Professional University — Phagwara</item>
+        <item>Thapar Institute — Patiala</item>
+        <item>GITAM — Visakhapatnam</item>
+        <item>GITAM — Hyderabad</item>
+        <item>GITAM — Bengaluru</item>
+        <item>CBIT — Hyderabad</item>
+        <item>VNR VJIET — Hyderabad</item>
+        <item>BMS College of Engineering — Bengaluru</item>
+        <item>Symbiosis International University — Pune</item>
+        <item>D. Y. Patil College of Engineering — Pune</item>
+        <item>Thiagarajar College of Engineering — Madurai</item>
+        <item>Kumaraguru College of Technology — Coimbatore</item>
+        <item>Kongu Engineering College — Erode</item>
+        <item>Rajalakshmi Engineering College — Chennai</item>
+        <item>Panimalar Engineering College — Chennai</item>
+        <item>Vel Tech — Chennai</item>
+        <item>St. Joseph’s College of Engineering — Chennai</item>
+        <item>Easwari Engineering College — Chennai</item>
+    </string-array>
+</resources>

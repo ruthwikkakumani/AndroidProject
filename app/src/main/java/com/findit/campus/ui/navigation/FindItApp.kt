@@ -1,6 +1,18 @@
 package com.findit.campus.ui.navigation
 
 import android.net.Uri
+import com.findit.campus.notifications.AlertDestination
+import com.findit.campus.ui.components.*
+import com.findit.campus.ui.chat.InboxViewModel
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.dp
+import com.findit.campus.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -54,6 +66,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.findit.campus.ui.auth.GoogleCampusScreen
 import com.findit.campus.ui.auth.ForgotPasswordScreen
 import com.findit.campus.ui.auth.LoginScreen
 import com.findit.campus.ui.auth.RegisterScreen
@@ -81,6 +94,7 @@ private object Routes {
     const val SCAN = "scan"
     const val MINE = "mine"
     const val INBOX = "inbox"
+    const val ALERTS = "alerts"
     const val CHAT = "chat/{itemId}"
     const val CONVERSATION = "conversation/{threadId}"
     const val POST = "post?prefill={prefill}&kind={kind}"
@@ -108,7 +122,15 @@ private val tabs = listOf(
 )
 
 @Composable
-fun FindItApp(widthClass: WindowWidthSizeClass) {
+fun FindItApp(widthClass: WindowWidthSizeClass, alert: AlertDestination? = null, onAlertConsumed: () -> Unit = {}) {
+    val feedback = rememberToastFeedback()
+    CompositionLocalProvider(LocalFeedback provides feedback) {
+        FindItContent(widthClass, alert, onAlertConsumed)
+    }
+}
+
+@Composable
+private fun FindItContent(widthClass: WindowWidthSizeClass, alert: AlertDestination?, onAlertConsumed: () -> Unit) {
     val session: SessionViewModel = viewModel()
     val sessionState by session.state.collectAsStateWithLifecycle()
     if (sessionState.loading) {
@@ -127,7 +149,28 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
     val snackbar = remember { SnackbarHostState() }
     val backStack by navController.currentBackStackEntryAsState()
     val route = backStack?.destination?.route.orEmpty()
-    val showBar = route == Routes.DISCOVER || route == Routes.MAP || route == Routes.SCAN || route == Routes.MINE || route == Routes.INBOX
+    val showBar = route == Routes.DISCOVER || route == Routes.MAP || route == Routes.SCAN || route == Routes.MINE || route == Routes.INBOX || route == Routes.ALERTS
+    val wide = widthClass != WindowWidthSizeClass.Compact
+    val inbox: InboxViewModel = viewModel()
+    val notifications by inbox.notifications.collectAsStateWithLifecycle()
+    val unread = notifications.count { !it.read }
+    val feedback = LocalFeedback.current
+    fun openTab(target: String) {
+        navController.navigate(target) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+    LaunchedEffect(alert, signedIn.id) {
+        alert?.let { destination ->
+            if (destination.accountId == signedIn.id) navController.navigate(
+                destination.threadId?.let(Routes::conversation) ?: destination.itemId?.let(Routes::detail) ?: Routes.ALERTS
+            ) { launchSingleTop = true }
+            else feedback("This update belongs to a different account. Open Messages after signing in to that account.")
+            onAlertConsumed()
+        }
+    }
     val expanded = widthClass == WindowWidthSizeClass.Expanded
     val homeViewModel: HomeViewModel = viewModel()
     LaunchedEffect(backStack) {
@@ -136,10 +179,10 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
     }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = { SnackbarHost(snackbar) { FeedbackSnackbar(it) } },
         floatingActionButton = {
             AnimatedVisibility(
-                visible = route == Routes.DISCOVER || route == Routes.MINE,
+                visible = !wide && (route == Routes.DISCOVER || route == Routes.MINE),
                 enter = scaleIn() + fadeIn(),
                 exit = scaleOut() + fadeOut(),
             ) {
@@ -151,25 +194,14 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
             }
         },
         bottomBar = {
-            if (showBar) {
+            if (showBar && !wide) {
                 NavigationBar {
                     tabs.forEach { tab ->
                         NavigationBarItem(
-                            selected = route == tab.route,
-                            onClick = {
-                                navController.navigate(tab.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
+                            selected = route == tab.route || (tab.route == Routes.INBOX && route == Routes.ALERTS),
+                            onClick = { openTab(tab.route) },
                             icon = {
-                                Icon(
-                                    if (route == tab.route) tab.selectedIcon else tab.icon,
-                                    contentDescription = tab.label,
-                                )
+                                TabIcon(tab, route, unread)
                             },
                             label = { Text(tab.label) },
                         )
@@ -178,10 +210,24 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
             }
         },
     ) { padding ->
+        Row(Modifier.padding(padding).fillMaxSize()) {
+            if (showBar && wide) NavigationRail(header = {
+                Image(painterResource(R.drawable.findit_logo), "FindIt", Modifier.padding(12.dp).size(34.dp))
+                FloatingActionButton({ navController.navigate(Routes.post()) }, Modifier.padding(8.dp)) {
+                    Icon(Icons.Filled.Add, "Report a lost item")
+                }
+            }) {
+                tabs.forEach { tab -> NavigationRailItem(
+                    selected = route == tab.route || (tab.route == Routes.INBOX && route == Routes.ALERTS),
+                    onClick = { openTab(tab.route) }, icon = { TabIcon(tab, route, unread) }, label = { Text(tab.label) },
+                ) }
+            }
+            Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+            Box(Modifier.widthIn(max = if (route == Routes.DISCOVER || route == Routes.MAP) 1200.dp else 680.dp).fillMaxSize()) {
         NavHost(
             navController = navController,
             startDestination = Routes.DISCOVER,
-            modifier = Modifier.padding(padding),
+            modifier = Modifier.fillMaxSize(),
             enterTransition = { fadeIn(tween(200)) + slideInHorizontally(tween(240)) { it / 12 } },
             exitTransition = { fadeOut(tween(150)) },
             popEnterTransition = { fadeIn(tween(200)) },
@@ -208,7 +254,8 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
                     campusName = signedIn.campusName,
                     viewerId = signedIn.id,
                     onFound = { id -> navController.navigate(Routes.chat(id)) },
-                    onInbox = { navController.navigate(Routes.INBOX) },
+                    onInbox = { navController.navigate(Routes.ALERTS) },
+                    unreadCount = unread,
                     onProfile = { navController.navigate(Routes.MINE) },
                     onPostFound = { navController.navigate(Routes.post(kind = "FOUND")) },
                 )
@@ -237,6 +284,10 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
                     onOpen = { navController.navigate(Routes.detail(it)) },
                     onUseText = { navController.navigate(Routes.post(it)) },
                 )
+            }
+            composable(Routes.ALERTS) {
+                InboxScreen(onOpen = { navController.navigate(Routes.conversation(it)) },
+                    onOpenReport = { navController.navigate(Routes.detail(it)) }, startAlerts = true)
             }
             composable(Routes.INBOX) {
                 InboxScreen(onOpen = { navController.navigate(Routes.conversation(it)) }, onOpenReport = { navController.navigate(Routes.detail(it)) })
@@ -328,6 +379,18 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
                 )
             }
         }
+            }
+        }
+        }
+    }
+}
+
+@Composable
+private fun TabIcon(tab: Tab, route: String, unread: Int) {
+    val selected = route == tab.route || (tab.route == Routes.INBOX && route == Routes.ALERTS)
+    BadgedBox(badge = { if (tab.route == Routes.INBOX && unread > 0) Badge { Text(if (unread > 99) "99+" else unread.toString()) } }) {
+        Icon(if (selected) tab.selectedIcon else tab.icon, tab.label,
+            Modifier.semantics { if (tab.route == Routes.INBOX) stateDescription = "$unread unread alerts" })
     }
 }
 
@@ -337,6 +400,18 @@ private fun AuthFlow(session: SessionViewModel) {
     var error by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     val busy by session.busy.collectAsStateWithLifecycle()
     var created by remember { mutableStateOf(false) }
+    val feedback = LocalFeedback.current
+    val draft by session.googleDraft.collectAsStateWithLifecycle()
+    val google: (String) -> Unit = { token -> session.google(token) { error = it } }
+    if (draft != null) {
+        ReadingPane(Modifier.statusBarsPadding()) {
+            GoogleCampusScreen(draft!!, busy, error, { session.cancelGoogle(); error = null }) { name, campus ->
+                session.completeGoogle(name, campus) { error = it; if (it == null) feedback("Welcome to your campus") }
+            }
+        }
+        return
+    }
+    ReadingPane {
     NavHost(navController = navController, startDestination = "welcome", modifier = Modifier.statusBarsPadding()) {
         composable("welcome") {
             WelcomeScreen(
@@ -350,11 +425,14 @@ private fun AuthFlow(session: SessionViewModel) {
                 onLogin = { navController.navigate("login") },
                 error = error,
                 busy = busy,
+                onGoogleToken = google,
+                onGoogleError = { error = it },
                 onSubmit = { name, email, password, confirm, campus ->
                     session.register(name, email, password, confirm, campus) { message ->
                         if (message == null) {
                             error = null
                             created = true
+                            feedback("Account created. Log in to continue.")
                             navController.navigate("login") {
                                 popUpTo("welcome")
                             }
@@ -372,12 +450,15 @@ private fun AuthFlow(session: SessionViewModel) {
                 onForgot = { navController.navigate("forgot") },
                 error = error,
                 busy = busy,
+                onGoogleToken = google,
+                onGoogleError = { error = it },
                 notice = if (created) "Account created. Log in to open your dashboard." else null,
-                onSubmit = { email, password -> session.login(email, password) { error = it } },
+                onSubmit = { email, password -> session.login(email, password) { error = it; if (it == null) feedback("Welcome back") } },
             )
         }
         composable("forgot") {
             ForgotPasswordScreen(onBack = { navController.popBackStack() })
         }
+    }
     }
 }

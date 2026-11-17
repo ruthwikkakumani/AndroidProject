@@ -27,13 +27,14 @@ fun PhotoActions(onPhoto: (Bitmap) -> Unit, onError: (String) -> Unit, modifier:
     enabled: Boolean = true, cameraLabel: String = "Take photo", galleryLabel: String = "Choose photo") {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val feedback = LocalFeedback.current
     var cameraRequested by remember { mutableStateOf(false) }
     val (granted, ask) = rememberPermissionAsk(CameraPermissions,
         "FindIt uses your camera to photograph an item. Photos are shared only when you submit them.",
         "Enable Camera in Settings to take a photo, or choose an existing photo.")
     val picker = rememberLauncherForActivityResult(PickVisualMedia()) { uri ->
         if (uri != null) scope.launch {
-            try { (context.applicationContext as FindItApplication).graph.photos.readPicker(uri)?.let(onPhoto) ?: onError("This image could not be opened.") }
+            try { (context.applicationContext as FindItApplication).graph.photos.readPicker(uri)?.let { bitmap -> onPhoto(bitmap); feedback("Photo selected") } ?: onError("This image could not be opened.") }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) { onError("This photo could not be loaded. Please try another image.") }
         }
@@ -49,7 +50,7 @@ fun PhotoActions(onPhoto: (Bitmap) -> Unit, onError: (String) -> Unit, modifier:
         }
     }
     if (cameraRequested && granted) {
-        CameraCapture(onClose = { cameraRequested = false }, onPhoto = { cameraRequested = false; onPhoto(it) }, onError = onError)
+        CameraCapture(onClose = { cameraRequested = false }, onPhoto = { cameraRequested = false; onPhoto(it); feedback("Photo captured") }, onError = onError)
     }
 }
 

@@ -164,17 +164,18 @@ private fun CheckLine(name: String, checked: Boolean) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InboxScreen(onOpen: (Long) -> Unit, modifier: Modifier = Modifier, onOpenReport: (Long) -> Unit = {}) {
+fun InboxScreen(onOpen: (Long) -> Unit, modifier: Modifier = Modifier, onOpenReport: (Long) -> Unit = {}, startAlerts: Boolean = false) {
     val model: InboxViewModel = viewModel()
     val conversations by model.conversations.collectAsStateWithLifecycle(); val notifications by model.notifications.collectAsStateWithLifecycle()
-    InboxContent(conversations, notifications, onOpen, model::markRead, modifier, onOpenReport)
+    InboxContent(conversations, notifications, onOpen, model::markRead, modifier, onOpenReport, startAlerts)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InboxContent(conversations: List<ConversationSummary>, notifications: List<NotificationEntity>,
-    onOpen: (Long) -> Unit, onMarkRead: () -> Unit, modifier: Modifier = Modifier, onOpenReport: (Long) -> Unit = {}) {
-    var alerts by rememberSaveable { mutableStateOf(false) }
+    onOpen: (Long) -> Unit, onMarkRead: () -> Unit, modifier: Modifier = Modifier, onOpenReport: (Long) -> Unit = {}, startAlerts: Boolean = false) {
+    var alerts by rememberSaveable { mutableStateOf(startAlerts) }
+    val feedback = LocalFeedback.current
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Brand() }
         item { IllustratedHeading("Messages &\nhappy returns", "Keep every conversation and item check in one place.", R.drawable.art_messages) }
@@ -186,7 +187,7 @@ fun InboxContent(conversations: List<ConversationSummary>, notifications: List<N
         }
         if (alerts) {
             if (notifications.isEmpty()) item { EmptyBoard("All caught up", "Matches, replies, and return requests will appear here.") }
-            else item { TextButton(onMarkRead, Modifier.fillMaxWidth()) { Text("Mark all as read") } }
+            else item { TextButton({ onMarkRead(); feedback("Alerts marked as read") }, Modifier.fillMaxWidth()) { Text("Mark all as read") } }
             items(notifications, key = { it.id }) { alert ->
                 Surface(onClick = { if (alert.threadId != null) onOpen(alert.threadId) else alert.itemId?.let(onOpenReport) }, shape = MaterialTheme.shapes.medium, color = if (alert.read) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.primaryContainer) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -12,6 +12,8 @@ import com.findit.campus.data.cloud.awaitResult
 import com.findit.campus.data.cloud.campusKey
 import com.findit.campus.data.cloud.stableId
 import com.google.firebase.FirebaseNetworkException
+import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.firestore.DocumentSnapshot
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -35,6 +37,13 @@ sealed interface AuthResult {
     data object Created : AuthResult
     data class SignedIn(val account: Account) : AuthResult
     data class Rejected(val message: String) : AuthResult
+}
+
+data class GoogleProfileDraft(val name: String, val email: String)
+sealed interface GoogleAuthResult {
+    data class SignedIn(val account: Account) : GoogleAuthResult
+    data class NeedsCampus(val draft: GoogleProfileDraft) : GoogleAuthResult
+    data class Rejected(val message: String) : GoogleAuthResult
 }
 
 class AccountRepository(private val database: FindItDatabase, private val cloud: CloudServices) {
@@ -120,6 +129,7 @@ class AccountRepository(private val database: FindItDatabase, private val cloud:
         }
         val entity = accounts.findByEmail(email.trim().lowercase())
             ?: return AuthResult.Rejected("Those details do not match an account.")
+        if (entity.passwordHash.isBlank()) return AuthResult.Rejected("Use Google sign-in for this account.")
         if (!withContext(Dispatchers.Default) { PasswordHasher.verify(password, entity.passwordSalt, entity.passwordHash) }) {
             return AuthResult.Rejected("Those details do not match an account.")
         }
@@ -130,6 +140,66 @@ class AccountRepository(private val database: FindItDatabase, private val cloud:
     suspend fun logout() {
         accounts.clearSession()
         cloud.auth?.signOut()
+    }
+
+    suspend fun signInGoogle(idToken: String): GoogleAuthResult {
+        if (!cloud.configured) return GoogleAuthResult.Rejected("Google sign-in needs campus account services to be configured.")
+        if (idToken.isBlank()) return GoogleAuthResult.Rejected("Google could not verify your account. Please try again.")
+        return try {
+            val user = cloud.auth!!.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null)).awaitResult().user
+                ?: return GoogleAuthResult.Rejected("Google sign-in could not be completed.")
+            val email = user.email.orEmpty().trim().lowercase(Locale.ROOT)
+            if (!isValidEmail(email)) return GoogleAuthResult.Rejected("Your Google account needs an email address.")
+            val local = accounts.findByEmail(email)
+            if (local != null && local.remoteUid != user.uid) {
+                cloud.auth.signOut()
+                return GoogleAuthResult.Rejected("This email belongs to a local demo account. Use its password, or choose a different Google account.")
+            }
+            val profile = cloud.store!!.collection("profiles").document(user.uid).get().awaitResult()
+            if (!profile.exists()) GoogleAuthResult.NeedsCampus(GoogleProfileDraft(user.displayName.orEmpty(), email))
+            else GoogleAuthResult.SignedIn(saveGoogleAccount(user.uid, email, profile))
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (error: Exception) {
+            FindItLog.e("Google sign-in failed", error)
+            GoogleAuthResult.Rejected("Google sign-in failed. Check your connection and Firebase Google provider setup.")
+        }
+    }
+
+    suspend fun completeGoogleProfile(name: String, campus: String): AuthResult {
+        if (name.trim().length !in 2..80) return AuthResult.Rejected("Enter your full name (2–80 characters).")
+        if (campus.trim().length !in 2..80) return AuthResult.Rejected("Choose or enter your college (2–80 characters).")
+        val user = cloud.auth?.currentUser
+            ?: return AuthResult.Rejected("Please sign in with Google again.")
+        if (user.providerData.none { it.providerId == GoogleAuthProvider.PROVIDER_ID })
+            return AuthResult.Rejected("Please sign in with Google again.")
+        return try {
+            val reference = cloud.store!!.collection("profiles").document(user.uid)
+            var profile = reference.get().awaitResult()
+            if (!profile.exists()) {
+                reference.set(mapOf("uid" to user.uid, "localId" to stableId(user.uid),
+                    "displayName" to name.trim(), "campusName" to campus.trim(), "campusKey" to campusKey(campus))).awaitResult()
+                profile = reference.get().awaitResult()
+            }
+            AuthResult.SignedIn(saveGoogleAccount(user.uid, user.email.orEmpty().trim().lowercase(Locale.ROOT), profile))
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (error: Exception) {
+            FindItLog.e("Google campus setup failed", error)
+            AuthResult.Rejected("Your campus could not be saved. Check your connection and try again.")
+        }
+    }
+
+    fun cancelGoogleSetup() { cloud.auth?.signOut() }
+
+    private suspend fun saveGoogleAccount(uid: String, email: String, profile: DocumentSnapshot): Account {
+        val id = stableId(uid)
+        val existing = accounts.getById(id)
+        // OAuth tokens are never persisted in Room or used as passwords.
+        val entity = AccountEntity(id, profile.getString("displayName").orEmpty(), email,
+            existing?.passwordHash.orEmpty(), existing?.passwordSalt.orEmpty(),
+            profile.getString("campusName").orEmpty(), existing?.createdAt ?: System.currentTimeMillis(), uid)
+        accounts.upsert(entity)
+        accounts.saveSession(DeviceSessionEntity(accountId = id))
+        return entity.toAccount()
     }
 
     suspend fun resetPassword(email: String): String? {

@@ -31,7 +31,7 @@ fun DiscoverScreen(
     onOpenItem: (Long) -> Unit, onSelect: (Long) -> Unit, onReunite: (Long) -> Unit, onDelete: (Long) -> Unit,
     displayName: String = "", campusName: String = "", viewerId: Long = 0,
     onFound: (Long) -> Unit = {}, onInbox: () -> Unit = {}, onProfile: () -> Unit = {},
-    onPostFound: () -> Unit = {}, modifier: Modifier = Modifier,
+    onPostFound: () -> Unit = {}, modifier: Modifier = Modifier, unreadCount: Int = 0,
 ) {
     var filtersOpen by rememberSaveable { mutableStateOf(false) }
     // A null business filter means the default Lost board. The Found tab remains independently searchable.
@@ -44,7 +44,11 @@ fun DiscoverScreen(
         item(span = { GridItemSpan(maxLineSpan) }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Brand(Modifier.weight(1f), campusName.ifBlank { "Campus lost & found" })
-                IconButton(onClick = onInbox) { Icon(Icons.Outlined.Notifications, "Notifications") }
+                IconButton(onClick = onInbox) {
+                    BadgedBox(badge = { if (unreadCount > 0) Badge { Text(if (unreadCount > 99) "99+" else unreadCount.toString()) } }) {
+                        Icon(Icons.Outlined.Notifications, "Notifications")
+                    }
+                }
                 IconButton(onClick = onProfile) { Avatar(displayName) }
             }
         }

@@ -30,7 +30,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "MAPS_API_KEY", mapsApiKey.buildConfigLiteral())
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
-        listOf("FIREBASE_APPLICATION_ID", "FIREBASE_API_KEY", "FIREBASE_PROJECT_ID", "FIREBASE_STORAGE_BUCKET").forEach { key ->
+        listOf("FIREBASE_APPLICATION_ID", "FIREBASE_API_KEY", "FIREBASE_PROJECT_ID", "FIREBASE_STORAGE_BUCKET", "GOOGLE_WEB_CLIENT_ID").forEach { key ->
             buildConfigField("String", key, localProperties.getProperty(key, "").buildConfigLiteral())
         }
     }
@@ -75,6 +75,9 @@ ksp {
 }
 
 dependencies {
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play)
+    implementation(libs.google.id)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)

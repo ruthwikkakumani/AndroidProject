@@ -4,7 +4,10 @@ import android.graphics.Bitmap
 import androidx.compose.runtime.*
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -39,6 +42,51 @@ class ScreenQualityTest {
         File(dir, "$name.png").outputStream().use {
             rule.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
         }
+    }
+
+    @Test fun collegeDropdownFiltersSelectsAndAllowsCustomNames() {
+        var campus by mutableStateOf("")
+        rule.setContent { FindItTheme { Surface(Modifier.fillMaxSize()) {
+            androidx.compose.foundation.layout.Column {
+                CampusField(campus, { campus = it }, Modifier.testTag("campus_search"))
+            }
+        } } }
+        rule.onNodeWithTag("campus_search").performTextInput("VIT")
+        rule.onNodeWithText("VIT — Chennai").assertExists()
+        val dropdownFile = File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "quality-screens/college-dropdown.png")
+        dropdownFile.parentFile?.mkdirs()
+        dropdownFile.outputStream().use { InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it) }
+        rule.onNodeWithText("VIT — Chennai").performClick()
+        rule.runOnIdle { assertEquals("VIT — Chennai", campus) }
+        rule.onNodeWithTag("campus_search").performTextReplacement("My Independent College")
+        rule.runOnIdle { assertEquals("My Independent College", campus) }
+    }
+
+    @Test fun googleButtonGivesUsefulFeedbackWithoutConfiguration() {
+        if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank()) return
+        var error: String? = null
+        rule.setContent { FindItTheme { LoginScreen({}, { _, _ -> }, {}, {}, error = null,
+            onGoogleToken = {}, onGoogleError = { error = it }) } }
+        capture("google-login")
+        rule.onNodeWithText("Continue with Google").performScrollTo().performClick()
+        rule.runOnIdle { assertTrue(error?.contains("email and password") == true) }
+    }
+
+    @Test fun smallScreenAndLargeTextKeepSignupReachable() {
+        var submitted = false
+        rule.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+                androidx.compose.ui.unit.Density(androidx.compose.ui.platform.LocalDensity.current.density, 1.3f)) {
+                FindItTheme { Surface(Modifier.fillMaxSize()) {
+                    androidx.compose.foundation.layout.Box(Modifier.width(320.dp)) {
+                        RegisterScreen({}, { _, _, _, _, _ -> submitted = true }, {}, error = null)
+                    }
+                } }
+            }
+        }
+        rule.onNodeWithTag("register_submit").performScrollTo().assertIsDisplayed().performClick()
+        rule.runOnIdle { assertTrue(submitted) }
+        capture("signup-small-large-text")
     }
 
     @Test fun boardsKeepActionsAndRecipientsSeparate() {

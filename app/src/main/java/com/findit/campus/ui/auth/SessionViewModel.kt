@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.findit.campus.FindItApplication
 import com.findit.campus.data.Account
 import com.findit.campus.data.AuthResult
+import com.findit.campus.data.GoogleAuthResult
+import com.findit.campus.data.GoogleProfileDraft
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +21,45 @@ data class SessionState(val loading: Boolean = true, val account: Account? = nul
 class SessionViewModel(app: Application) : AndroidViewModel(app) {
     private val accounts = getApplication<FindItApplication>().graph.accounts
     val busy = MutableStateFlow(false)
+    val googleDraft = MutableStateFlow<GoogleProfileDraft?>(null)
+
+    fun google(idToken: String, onResult: (String?) -> Unit) {
+        if (busy.value) return
+        viewModelScope.launch {
+            busy.value = true
+            try {
+                when (val result = accounts.signInGoogle(idToken)) {
+                    is GoogleAuthResult.SignedIn -> { googleDraft.value = null; onResult(null) }
+                    is GoogleAuthResult.NeedsCampus -> { googleDraft.value = result.draft; onResult(null) }
+                    is GoogleAuthResult.Rejected -> onResult(result.message)
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { onResult("Google sign-in could not be completed. Please try again.") }
+            finally { busy.value = false }
+        }
+    }
+
+    fun completeGoogle(name: String, campus: String, onResult: (String?) -> Unit) {
+        if (busy.value) return
+        viewModelScope.launch {
+            busy.value = true
+            try {
+                when (val result = accounts.completeGoogleProfile(name, campus)) {
+                    is AuthResult.SignedIn -> { googleDraft.value = null; onResult(null) }
+                    is AuthResult.Rejected -> onResult(result.message)
+                    AuthResult.Created -> Unit
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { onResult("Your campus could not be saved. Please try again.") }
+            finally { busy.value = false }
+        }
+    }
+
+    fun cancelGoogle() {
+        if (busy.value) return
+        googleDraft.value = null
+        accounts.cancelGoogleSetup()
+    }
     // Resolve the saved Room session before deciding to display authentication.
     val state: StateFlow<SessionState> = accounts.observeAccount()
         .map { SessionState(loading = false, account = it) }

@@ -45,6 +45,12 @@ class RepositoryFlowTest {
     }
     @After fun tearDown() { db.close() }
 
+    @Test fun googleRequiresBackendAndCannotCreateAnUnverifiedLocalSession() = runBlocking {
+        assertTrue(accounts.signInGoogle("invalid-test-token") is com.findit.campus.data.GoogleAuthResult.Rejected)
+        assertTrue(accounts.completeGoogleProfile("Test Student", "Test Campus") is AuthResult.Rejected)
+        assertNull(accounts.observeAccount().first())
+    }
+
     @Test fun loginPersistsAcrossDatabaseReopenUntilExplicitLogout() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val name = "session-regression-${java.util.UUID.randomUUID()}.db"
