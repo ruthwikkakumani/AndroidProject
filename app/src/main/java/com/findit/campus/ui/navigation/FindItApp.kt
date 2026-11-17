@@ -6,7 +6,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -21,6 +26,7 @@ import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -37,6 +43,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -75,10 +82,12 @@ private object Routes {
     const val MINE = "mine"
     const val INBOX = "inbox"
     const val CHAT = "chat/{itemId}"
-    const val POST = "post?prefill={prefill}"
+    const val CONVERSATION = "conversation/{threadId}"
+    const val POST = "post?prefill={prefill}&kind={kind}"
     const val DETAIL = "detail/{itemId}"
 
-    fun post(prefill: String = "") = "post?prefill=${Uri.encode(prefill.take(240))}"
+    fun post(prefill: String = "", kind: String = "LOST") = "post?prefill=${Uri.encode(prefill.take(240))}&kind=$kind"
+    fun conversation(id: Long) = "conversation/$id"
     fun detail(id: Long) = "detail/$id"
     fun chat(id: Long) = "chat/$id"
 }
@@ -91,22 +100,29 @@ private data class Tab(
 )
 
 private val tabs = listOf(
-    Tab(Routes.DISCOVER, "Discover", Icons.Outlined.Explore, Icons.Rounded.Explore),
+    Tab(Routes.DISCOVER, "Home", Icons.Outlined.Explore, Icons.Rounded.Explore),
     Tab(Routes.MAP, "Map", Icons.Outlined.Map, Icons.Rounded.Map),
-    Tab(Routes.INBOX, "Chat", Icons.Outlined.Chat, Icons.Rounded.Chat),
+    Tab(Routes.INBOX, "Messages", Icons.Outlined.Chat, Icons.Rounded.Chat),
     Tab(Routes.SCAN, "Scan", Icons.Outlined.DocumentScanner, Icons.Rounded.DocumentScanner),
-    Tab(Routes.MINE, "Mine", Icons.Outlined.Inventory2, Icons.Rounded.Inventory2),
+    Tab(Routes.MINE, "Profile", Icons.Outlined.Inventory2, Icons.Rounded.Inventory2),
 )
 
 @Composable
 fun FindItApp(widthClass: WindowWidthSizeClass) {
     val session: SessionViewModel = viewModel()
-    val account by session.account.collectAsStateWithLifecycle()
+    val sessionState by session.state.collectAsStateWithLifecycle()
+    if (sessionState.loading) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+    val account = sessionState.account
     if (account == null) {
         AuthFlow(session = session)
         return
     }
-    val signedIn = account!!
+    val signedIn = account
     val navController = rememberNavController()
     val snackbar = remember { SnackbarHostState() }
     val backStack by navController.currentBackStackEntryAsState()
@@ -166,10 +182,10 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
             navController = navController,
             startDestination = Routes.DISCOVER,
             modifier = Modifier.padding(padding),
-            enterTransition = { fadeIn() },
-            exitTransition = { fadeOut() },
-            popEnterTransition = { fadeIn() },
-            popExitTransition = { fadeOut() },
+            enterTransition = { fadeIn(tween(200)) + slideInHorizontally(tween(240)) { it / 12 } },
+            exitTransition = { fadeOut(tween(150)) },
+            popEnterTransition = { fadeIn(tween(200)) },
+            popExitTransition = { fadeOut(tween(150)) + slideOutHorizontally(tween(200)) { it / 12 } },
         ) {
             composable(Routes.DISCOVER) {
                 val state by homeViewModel.uiState.collectAsStateWithLifecycle()
@@ -183,7 +199,7 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
                     onClear = homeViewModel::clearFilters,
                     onOpenItem = { id ->
                         homeViewModel.select(id)
-                        if (!expanded) navController.navigate(Routes.detail(id))
+                        navController.navigate(Routes.detail(id))
                     },
                     onSelect = homeViewModel::select,
                     onReunite = homeViewModel::reunite,
@@ -192,6 +208,9 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
                     campusName = signedIn.campusName,
                     viewerId = signedIn.id,
                     onFound = { id -> navController.navigate(Routes.chat(id)) },
+                    onInbox = { navController.navigate(Routes.INBOX) },
+                    onProfile = { navController.navigate(Routes.MINE) },
+                    onPostFound = { navController.navigate(Routes.post(kind = "FOUND")) },
                 )
             }
             composable(Routes.MAP) {
@@ -220,12 +239,15 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
                 )
             }
             composable(Routes.INBOX) {
-                InboxScreen(onOpen = { navController.navigate(Routes.chat(it)) })
+                InboxScreen(onOpen = { navController.navigate(Routes.conversation(it)) }, onOpenReport = { navController.navigate(Routes.detail(it)) })
             }
             composable(
                 route = Routes.CHAT,
                 arguments = listOf(navArgument("itemId") { type = NavType.LongType }),
             ) {
+                ChatScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.CONVERSATION, arguments = listOf(navArgument("threadId") { type = NavType.LongType })) {
                 ChatScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.MINE) {
@@ -235,6 +257,7 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
                     state = state,
                     onOpen = { navController.navigate(Routes.detail(it)) },
                     accountName = signedIn.displayName,
+                    email = signedIn.email,
                     campusName = signedIn.campusName,
                     onLogout = session::logout,
                 )
@@ -242,6 +265,7 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
             composable(
                 route = Routes.POST,
                 arguments = listOf(
+                    navArgument("kind") { type = NavType.StringType; defaultValue = "LOST" },
                     navArgument("prefill") {
                         type = NavType.StringType
                         defaultValue = ""
@@ -271,6 +295,7 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
                     onUseLocation = model::useMyLocation,
                     onPhoto = model::onPhoto,
                     onClearPhoto = model::clearPhoto,
+                    onReadPhoto = model::readPhoto,
                     onSave = model::save,
                     onDismissDuplicate = model::dismissDuplicate,
                     onViewDuplicate = { id -> navController.navigate(Routes.detail(id)) },
@@ -296,7 +321,10 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
                         }
                     },
                     viewerId = signedIn.id,
-                    onReachOut = { navController.navigate(Routes.chat(state.item?.id ?: return@DetailScreen)) },
+                    onReachOut = {
+                        val item = state.item ?: return@DetailScreen
+                        navController.navigate(if (item.ownerId == signedIn.id) Routes.INBOX else Routes.chat(item.id))
+                    },
                 )
             }
         }
@@ -307,6 +335,7 @@ fun FindItApp(widthClass: WindowWidthSizeClass) {
 private fun AuthFlow(session: SessionViewModel) {
     val navController = rememberNavController()
     var error by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    val busy by session.busy.collectAsStateWithLifecycle()
     var created by remember { mutableStateOf(false) }
     NavHost(navController = navController, startDestination = "welcome", modifier = Modifier.statusBarsPadding()) {
         composable("welcome") {
@@ -320,6 +349,7 @@ private fun AuthFlow(session: SessionViewModel) {
                 onBack = { navController.popBackStack() },
                 onLogin = { navController.navigate("login") },
                 error = error,
+                busy = busy,
                 onSubmit = { name, email, password, confirm, campus ->
                     session.register(name, email, password, confirm, campus) { message ->
                         if (message == null) {
@@ -341,6 +371,7 @@ private fun AuthFlow(session: SessionViewModel) {
                 onCreate = { navController.navigate("register") },
                 onForgot = { navController.navigate("forgot") },
                 error = error,
+                busy = busy,
                 notice = if (created) "Account created. Log in to open your dashboard." else null,
                 onSubmit = { email, password -> session.login(email, password) { error = it } },
             )

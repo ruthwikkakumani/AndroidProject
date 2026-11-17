@@ -52,9 +52,8 @@ class MapViewModel(
             combine(tracking, permission) { on, granted -> on && granted }
                 .distinctUntilChanged()
                 .flatMapLatest { on ->
-                    if (on) graph.location.updates() else emptyFlow()
+                    if (on) graph.location.updates().catch { error -> FindItLog.e("Location updates stopped", error) } else emptyFlow()
                 }
-                .catch { error -> FindItLog.e("Location updates stopped", error) }
                 .collect { fix.value = it }
         }
     }
@@ -94,7 +93,7 @@ class MapViewModel(
 
     fun setPermission(granted: Boolean) {
         permission.value = granted
-        if (granted) refreshOnce()
+        if (granted) refreshOnce() else fix.value = null
     }
 
     fun onFocus(value: MapFocus) {

@@ -77,7 +77,7 @@ fun CampusMap(
         Canvas(Modifier.fillMaxSize()) {
             drawRect(land)
         }
-        items.forEach { item ->
+        items.filter { it.hasCoordinates }.forEach { item ->
             val point = project(item.latitude, item.longitude)
             val selected = item.id == selectedId
             val scale by animateFloatAsState(if (selected) 1.25f else 1f, label = "marker")

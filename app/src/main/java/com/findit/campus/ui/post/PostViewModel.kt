@@ -32,6 +32,7 @@ data class PostUiState(
     val categories: List<String> = CampusCatalog.categoryNames,
     val likelyPlaces: List<String> = emptyList(),
     val saving: Boolean = false,
+    val reading: Boolean = false,
     val locating: Boolean = false,
     val message: String? = null,
     val duplicate: DuplicatePrompt? = null,
@@ -132,6 +133,23 @@ class PostViewModel(
         }
     }
 
+    fun readPhoto() {
+        val path = _uiState.value.form.photoPath ?: return
+        if (_uiState.value.reading) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(reading = true) }
+            try {
+                val bitmap = graph.photos.loadDisplay(path, 1600) ?: error("Photo unavailable.")
+                val text = try { graph.scanner.read(bitmap) } finally { bitmap.recycle() }
+                edit { it.copy(scannedText = text.take(500),
+                    title = it.title.ifBlank { text.lineSequence().firstOrNull().orEmpty().take(60) }) }
+                _uiState.update { it.copy(message = if (text.isBlank()) "No readable text found. Try a closer photo of the label." else "Writing recognized. Review it before posting.") }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (error: Exception) { _uiState.update { it.copy(message = "Could not read this photo. Try a clearer label.") } }
+            finally { _uiState.update { it.copy(reading = false) } }
+        }
+    }
+
     fun clearPhoto() = edit { it.copy(photoPath = null, colorHex = null) }
 
     fun consumeMessage() = _uiState.update { it.copy(message = null) }
@@ -139,7 +157,7 @@ class PostViewModel(
     fun dismissDuplicate() = _uiState.update { it.copy(duplicate = null) }
 
     fun save(force: Boolean = false) {
-        val draft = _uiState.value.form.copy(type = ItemType.LOST)
+        val draft = _uiState.value.form
         val problem = validatePost(draft)
         if (problem != null) {
             _uiState.update { it.copy(message = problem) }
@@ -203,6 +221,7 @@ class PostViewModel(
             savedStateHandle[KEY_ZONE] = next.zoneName
             savedStateHandle[KEY_PLACE] = next.placeLabel
             savedStateHandle[KEY_CONTACT] = next.contact
+            savedStateHandle["privateDetail"] = next.privateDetail
             savedStateHandle[KEY_SCANNED] = next.scannedText
             savedStateHandle[KEY_PHOTO] = next.photoPath.orEmpty()
             savedStateHandle[KEY_COLOR] = next.colorHex.orEmpty()
@@ -240,7 +259,7 @@ class PostViewModel(
         val resolvedDescription = description.ifBlank { scannedText }
         return PostForm(
             type = runCatching {
-                ItemType.valueOf(savedStateHandle.get<String>(KEY_TYPE) ?: ItemType.LOST.name)
+                ItemType.valueOf(savedStateHandle.get<String>(KEY_TYPE) ?: savedStateHandle.get<String>("kind") ?: ItemType.LOST.name)
             }.getOrDefault(ItemType.LOST),
             title = savedStateHandle.get<String>(KEY_TITLE).orEmpty(),
             description = resolvedDescription,
@@ -254,6 +273,7 @@ class PostViewModel(
             zoneName = savedStateHandle.get<String>(KEY_ZONE).orEmpty(),
             contact = savedStateHandle.get<String>(KEY_CONTACT).orEmpty(),
             scannedText = scannedText,
+            privateDetail = savedStateHandle["privateDetail"] ?: "",
         )
     }
 

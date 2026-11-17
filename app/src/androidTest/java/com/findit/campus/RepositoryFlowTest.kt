@@ -45,6 +45,27 @@ class RepositoryFlowTest {
     }
     @After fun tearDown() { db.close() }
 
+    @Test fun loginPersistsAcrossDatabaseReopenUntilExplicitLogout() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val name = "session-regression-${java.util.UUID.randomUUID()}.db"
+        val cloud = CloudServices(context, enabled = false)
+        var saved = Room.databaseBuilder(context, FindItDatabase::class.java, name).build()
+        try {
+            var repository = AccountRepository(saved, cloud)
+            assertTrue(repository.register("Test student", "session@example.edu", "Secret123!", "Secret123!", "Test Campus") is AuthResult.Created)
+            assertNull(repository.observeAccount().first())
+            val signedIn = repository.login("session@example.edu", "Secret123!") as AuthResult.SignedIn
+            saved.close()
+            saved = Room.databaseBuilder(context, FindItDatabase::class.java, name).build()
+            repository = AccountRepository(saved, cloud)
+            assertEquals(signedIn.account.id, repository.observeAccount().first()?.id)
+            assertTrue(repository.login("session@example.edu", "wrong-password") is AuthResult.Rejected)
+            assertEquals(signedIn.account.id, repository.observeAccount().first()?.id)
+            repository.logout()
+            assertNull(repository.observeAccount().first())
+        } finally { saved.close(); context.deleteDatabase(name) }
+    }
+
     @Test fun accountCreationRequiresLoginAndCampusBoardIsPrivate() = runBlocking {
         val owner = student("owner")
         val lostId = items.add(report(ItemType.LOST), owner)

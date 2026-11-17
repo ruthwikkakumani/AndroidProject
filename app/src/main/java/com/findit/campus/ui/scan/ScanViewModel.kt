@@ -11,6 +11,9 @@ import com.findit.campus.ui.home.MatchPreview
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -66,27 +69,29 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun onPhoto(bitmap: Bitmap) {
+        if (busy.value) { bitmap.recycle(); return }
         viewModelScope.launch {
             busy.value = true
             message.value = null
-            val scaled = scaleDown(bitmap, 1600)
-            val outcome = runCatching { graph.scanner.read(scaled) }
-            if (scaled !== bitmap) scaled.recycle()
-            bitmap.recycle()
-            busy.value = false
-            outcome.onSuccess { value ->
+            var scaled: Bitmap? = null
+            try {
+                scaled = withContext(Dispatchers.Default) { scaleDown(bitmap, 1600) }
+                val value = graph.scanner.read(scaled)
                 if (value.isBlank()) {
                     message.value = "No writing turned up. Move closer and try again."
                 } else {
                     text.value = value.take(500)
                 }
-            }.onFailure { error ->
+            } catch (error: TimeoutCancellationException) {
+                message.value = "Reading that photo took too long."
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) {
                 FindItLog.e("Scan failed", error)
-                message.value = if (error is TimeoutCancellationException) {
-                    "Reading that photo took too long."
-                } else {
-                    "Could not read that photo."
-                }
+                message.value = "Could not read that photo."
+            } finally {
+                if (scaled !== bitmap) scaled?.recycle()
+                bitmap.recycle()
+                busy.value = false
             }
         }
     }

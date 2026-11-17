@@ -16,7 +16,7 @@ import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberCameraPositionState
-import com.google.maps.android.compose.rememberMarkerState
+import com.google.maps.android.compose.rememberUpdatedMarkerState
 
 @Composable
 fun GoogleCampusMap(
@@ -48,11 +48,10 @@ fun GoogleCampusMap(
         properties = MapProperties(isMyLocationEnabled = myLocationEnabled),
         uiSettings = MapUiSettings(myLocationButtonEnabled = myLocationEnabled, zoomControlsEnabled = false),
     ) {
-        items.forEach { item ->
+        items.filter { it.hasCoordinates }.forEach { item ->
             key(item.id) {
                 Marker(
-                    state = rememberMarkerState(
-                        key = item.id.toString(),
+                    state = rememberUpdatedMarkerState(
                         position = LatLng(item.latitude, item.longitude),
                     ),
                     title = item.title,

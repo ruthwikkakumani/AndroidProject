@@ -6,139 +6,102 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.findit.campus.FindItApplication
-import com.findit.campus.data.local.MessageEntity
-import com.findit.campus.data.local.ThreadEntity
+import com.findit.campus.data.local.*
+import com.findit.campus.model.Item
 import com.findit.campus.data.scaleDown
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class ChatUiState(
-    val thread: ThreadEntity? = null,
-    val messages: List<MessageEntity> = emptyList(),
-    val draft: String = "",
-    val colorAnswer: String = "",
-    val markAnswer: String = "",
-    val placeAnswer: String = "",
-    val busy: Boolean = false,
-    val notice: String? = null,
-    val viewerId: Long = 0,
+    val thread: ThreadEntity? = null, val item: Item? = null, val personName: String = "Campus student",
+    val messages: List<MessageEntity> = emptyList(), val draft: String = "",
+    val colorAnswer: String = "", val markAnswer: String = "", val placeAnswer: String = "",
+    val busy: Boolean = false, val notice: String? = null, val viewerId: Long = 0, val loading: Boolean = true,
 )
 
-class ChatViewModel(
-    app: Application,
-    savedStateHandle: SavedStateHandle,
-) : AndroidViewModel(app) {
+class ChatViewModel(app: Application, private val savedStateHandle: SavedStateHandle) : AndroidViewModel(app) {
     private val graph = getApplication<FindItApplication>().graph
-    private val itemId: Long = savedStateHandle.get<Long>("itemId")
-        ?: savedStateHandle.get<String>("itemId")?.toLongOrNull()
-        ?: -1L
-    private val state = MutableStateFlow(ChatUiState())
+    private val state = MutableStateFlow(ChatUiState(draft = savedStateHandle["draft"] ?: ""))
     val uiState: StateFlow<ChatUiState> = state
-
     init {
         viewModelScope.launch {
-            val account = graph.accounts.observeAccount().first() ?: return@launch
-            state.update { it.copy(viewerId = account.id) }
-            val threadId = graph.chat.open(itemId, account.id)
-            if (threadId == null) {
-                state.update { it.copy(notice = "Open this from the other person's report.") }
-                return@launch
-            }
-            launch {
-                graph.chat.observeThread(threadId).collect { thread ->
-                    state.update { it.copy(thread = thread) }
+            try {
+                val account = graph.accounts.observeAccount().first() ?: error("Sign in to open this conversation.")
+                state.update { it.copy(viewerId = account.id) }
+                val threadId = savedStateHandle.get<Long>("threadId") ?: graph.chat.open(savedStateHandle.get<Long>("itemId") ?: -1, account.id)
+                    ?: error("Choose a student's conversation from Messages.")
+                val thread = graph.database.chatDao().getThread(threadId) ?: error("This conversation is unavailable.")
+                require(account.id == thread.ownerId || account.id == thread.guestId) { "This is a private conversation." }
+                val peer = graph.database.accountDao().getById(if (account.id == thread.ownerId) thread.guestId else thread.ownerId)
+                state.update { it.copy(thread = thread, personName = peer?.displayName ?: "Campus student", loading = false) }
+                launch { graph.repository.observeItem(thread.itemId).collect { item -> state.update { it.copy(item = item) } } }
+                launch { graph.chat.observeThread(threadId).collect { t -> state.update { it.copy(thread = t) } } }
+                launch {
+                    graph.chat.observeMessages(threadId).collect { messages ->
+                        state.update { it.copy(messages = messages) }
+                        graph.database.accountDao().markThreadRead(account.id, threadId)
+                    }
                 }
-            }
-            launch {
-                graph.chat.observeMessages(threadId).collect { messages ->
-                    state.update { it.copy(messages = messages) }
-                }
-            }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { state.update { it.copy(loading = false, notice = error.message ?: "Conversation unavailable.") } }
         }
     }
-
-    fun onDraft(value: String) = state.update { it.copy(draft = value.take(500)) }
-
-    fun onColor(value: String) = state.update { it.copy(colorAnswer = value.take(40)) }
-
-    fun onMark(value: String) = state.update { it.copy(markAnswer = value.take(80)) }
-
-    fun onPlace(value: String) = state.update { it.copy(placeAnswer = value.take(80)) }
-
-    fun send() {
-        val current = state.value
-        val threadId = current.thread?.id ?: return
+    fun onDraft(value: String) { savedStateHandle["draft"] = value.take(1000); state.update { it.copy(draft = value.take(1000)) } }
+    fun onColor(value: String) = state.update { it.copy(colorAnswer = value.take(60)) }
+    fun onMark(value: String) = state.update { it.copy(markAnswer = value.take(120)) }
+    fun onPlace(value: String) = state.update { it.copy(placeAnswer = value.take(120)) }
+    fun dismissNotice() = state.update { it.copy(notice = null) }
+    fun reportError(message: String) = state.update { it.copy(notice = message) }
+    private fun action(block: suspend (ChatUiState, Long) -> Unit) {
+        val current = state.value; val threadId = current.thread?.id ?: return
+        if (current.busy) return
         viewModelScope.launch {
-            graph.chat.send(threadId, current.viewerId, current.draft)
-            state.update { it.copy(draft = "") }
+            state.update { it.copy(busy = true, notice = null) }
+            try { block(current, threadId) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { state.update { it.copy(notice = error.message ?: "Please try again.") } }
+            finally { state.update { it.copy(busy = false) } }
         }
     }
-
-    fun sendAnswers() {
-        val current = state.value
-        val threadId = current.thread?.id ?: return
-        val body = listOf(
-            "Color: ${current.colorAnswer.ifBlank { "not answered" }}",
-            "Mark: ${current.markAnswer.ifBlank { "not answered" }}",
-            "Last place: ${current.placeAnswer.ifBlank { "not answered" }}",
-        ).joinToString("\n")
-        viewModelScope.launch {
-            graph.chat.send(threadId, current.viewerId, body)
-            state.update { it.copy(colorAnswer = "", markAnswer = "", placeAnswer = "") }
-        }
+    fun send() = action { current, id -> graph.chat.send(id, current.viewerId, current.draft); onDraft("") }
+    fun sendAnswers() = action { current, id ->
+        require(current.colorAnswer.isNotBlank() && current.markAnswer.isNotBlank() && current.placeAnswer.isNotBlank()) { "Answer all three questions before sharing." }
+        graph.chat.send(id, current.viewerId, "Ownership details:\nColor: ${current.colorAnswer}\nUnique mark: ${current.markAnswer}\nLast place: ${current.placeAnswer}")
+        state.update { it.copy(colorAnswer = "", markAnswer = "", placeAnswer = "", notice = "Details shared privately. Ask follow-up questions if anything is unclear.") }
     }
-
     fun onProof(bitmap: Bitmap) {
-        val current = state.value
-        val threadId = current.thread?.id ?: return
-        viewModelScope.launch {
-            state.update { it.copy(busy = true) }
-            val scaled = scaleDown(bitmap, 640)
-            val path = runCatching { graph.photos.save(scaled) }.getOrNull()
-            if (scaled !== bitmap) scaled.recycle()
-            bitmap.recycle()
-            if (path == null) {
-                state.update { it.copy(busy = false, notice = "That photo could not be saved.") }
-                return@launch
+        if (state.value.busy || state.value.thread == null) { bitmap.recycle(); return }
+        action { current, id ->
+            val path = withContext(Dispatchers.IO) {
+                val scaled = scaleDown(bitmap, 1280)
+                try { graph.photos.save(scaled) } finally { if (scaled !== bitmap) scaled.recycle(); bitmap.recycle() }
             }
-            val verdict = graph.chat.checkPhoto(threadId, current.viewerId, path)
-            state.update {
-                it.copy(
-                    busy = false,
-                    notice = if (verdict.sameItem) {
-                        "Your photo matches. The other person still has to check before it is returned."
-                    } else {
-                        "Photos do not match. Do not hand the item over yet. Both of you should answer the questions."
-                    },
-                )
-            }
+            val verdict = graph.chat.checkPhoto(id, current.viewerId, path)
+            state.update { it.copy(notice = verdict.explanation + " Both students must review the evidence; AI cannot confirm ownership.") }
         }
     }
-
-    fun confirmReturn() {
-        val current = state.value
-        val threadId = current.thread?.id ?: return
-        viewModelScope.launch {
-            graph.chat.confirmReturn(threadId, current.viewerId)
-            state.update { it.copy(notice = "Your check is saved. The item returns only after both of you confirm.") }
-        }
+    fun confirmSide() = action { current, id ->
+        graph.chat.confirmSide(id, current.viewerId)
+        state.update { it.copy(notice = "Your verification is saved. Wait for the other student's check before handover.") }
+    }
+    fun confirmReturn() = action { current, id ->
+        graph.chat.confirmReturn(id, current.viewerId)
+        state.update { it.copy(notice = "Handover confirmation saved. The report closes after both students confirm.") }
     }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class InboxViewModel(app: Application) : AndroidViewModel(app) {
     private val graph = getApplication<FindItApplication>().graph
-    val threads: StateFlow<List<ThreadEntity>> = graph.accounts.observeAccount()
-        .flatMapLatest { account ->
-            if (account == null) flowOf(emptyList()) else graph.chat.observeThreads(account.id)
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val conversations = graph.accounts.observeAccount().flatMapLatest { account ->
+        if (account == null) flowOf(emptyList()) else graph.chat.observeConversations(account.id)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val notifications = graph.accounts.observeAccount().flatMapLatest { account ->
+        if (account == null) flowOf(emptyList()) else graph.database.accountDao().observeNotifications(account.id)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    fun markRead() { viewModelScope.launch { graph.accounts.observeAccount().first()?.let { graph.database.accountDao().markRead(it.id) } } }
 }

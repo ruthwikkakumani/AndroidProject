@@ -3,6 +3,7 @@ package com.findit.campus.ui.components
 import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -109,7 +111,7 @@ fun ItemPhoto(
             if (path.isNullOrBlank()) {
                 null
             } else {
-                val bitmap: Bitmap? = (context.applicationContext as FindItApplication).graph.photos.loadDisplay(path)
+                val bitmap: Bitmap? = runCatching { (context.applicationContext as FindItApplication).graph.photos.loadDisplay(path) }.getOrNull()
                 bitmap?.asImageBitmap()
             }
         }
@@ -222,10 +224,10 @@ fun ItemCard(
                         onClick = onFound,
                         modifier = Modifier.padding(top = 4.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF0F6E56),
+                            containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = Color.White,
                         ),
-                    ) { Text("Found") }
+                    ) { Text("Found it") }
                 }
             }
         }
@@ -270,4 +272,38 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
         style = MaterialTheme.typography.titleMedium,
         modifier = modifier.semantics { heading() },
     )
+}
+
+@Composable
+fun BoardItemCard(item: Item, onClick: () -> Unit, onAction: (() -> Unit)?, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    Surface(onClick = onClick, modifier = modifier, shape = MaterialTheme.shapes.large,
+        color = colors.surfaceContainerLow,
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.outlineVariant)) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box {
+                ItemPhoto(item.photoPath, item.title, item.category, colors.tertiary,
+                    Modifier.fillMaxWidth().height(128.dp))
+                TypeBadge(item.type, item.status, Modifier.padding(6.dp))
+            }
+            Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.Place, null, Modifier.size(13.dp), tint = colors.onSurfaceVariant)
+                Text(item.zoneName.ifBlank { "Campus" }, style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text(formatWhen(item.createdAt), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+            if (onAction != null && item.status == ItemStatus.OPEN) {
+                Button(onClick = onAction, modifier = Modifier.fillMaxWidth().height(40.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp),
+                    shape = RoundedCornerShape(12.dp)) {
+                    Text(if (item.type == ItemType.LOST) "Found it" else "This is mine", style = MaterialTheme.typography.labelMedium)
+                }
+            } else {
+                TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth().height(40.dp)) {
+                    Text(if (item.status == ItemStatus.REUNITED) "View return" else "View report", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+    }
 }

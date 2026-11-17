@@ -28,7 +28,10 @@ class PhotoStore(private val context: Context, private val cloud: CloudServices)
         if (path.startsWith("gs://")) {
             val storage = cloud.storage ?: return@withContext null
             val bytes = storage.getReferenceFromUrl(path).getBytes(8L * 1024 * 1024).awaitResult()
-            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return@withContext null
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            val options = BitmapFactory.Options().apply { inSampleSize = sampleSize(bounds, maxSide) }
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return@withContext null
             val scaled = scaleDown(bitmap, maxSide)
             if (scaled !== bitmap) bitmap.recycle()
             return@withContext scaled
@@ -45,12 +48,27 @@ class PhotoStore(private val context: Context, private val cloud: CloudServices)
     }
 
     suspend fun readPicker(uri: Uri): Bitmap? = withContext(Dispatchers.IO) {
-        context.contentResolver.openInputStream(uri)?.use { stream ->
-            BitmapFactory.decodeStream(stream)
-        }?.let { bitmap ->
-            val scaled = scaleDown(bitmap, 1280)
-            if (scaled !== bitmap) bitmap.recycle()
-            scaled
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize(bounds, 1280) }
+        val bitmap = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+            ?: return@withContext null
+        val orientation = runCatching { context.contentResolver.openInputStream(uri)?.use {
+            android.media.ExifInterface(it).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1)
+        } }.getOrNull() ?: 1
+        val matrix = android.graphics.Matrix().apply {
+            when (orientation) {
+                2 -> setScale(-1f, 1f)
+                3 -> setRotate(180f)
+                4 -> setScale(1f, -1f)
+                5 -> { setRotate(90f); postScale(-1f, 1f) }
+                6 -> setRotate(90f)
+                7 -> { setRotate(270f); postScale(-1f, 1f) }
+                8 -> setRotate(270f)
+            }
+        }
+        if (orientation == 1) bitmap else Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true).also {
+            if (it !== bitmap) bitmap.recycle()
         }
     }
 }
@@ -68,4 +86,10 @@ fun dominantColorHex(bitmap: Bitmap): String? {
     val palette = Palette.from(bitmap).clearFilters().maximumColorCount(12).generate()
     val rgb = palette.vibrantSwatch?.rgb ?: palette.dominantSwatch?.rgb ?: return null
     return String.format(Locale.US, "#%06X", 0xFFFFFF and rgb)
+}
+
+private fun sampleSize(bounds: BitmapFactory.Options, maxSide: Int): Int {
+    var sample = 1
+    while (maxOf(bounds.outWidth, bounds.outHeight) / sample > maxSide) sample *= 2
+    return sample
 }

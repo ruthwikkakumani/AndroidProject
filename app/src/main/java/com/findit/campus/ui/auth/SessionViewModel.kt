@@ -6,15 +6,23 @@ import androidx.lifecycle.viewModelScope
 import com.findit.campus.FindItApplication
 import com.findit.campus.data.Account
 import com.findit.campus.data.AuthResult
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+
+data class SessionState(val loading: Boolean = true, val account: Account? = null)
 
 class SessionViewModel(app: Application) : AndroidViewModel(app) {
     private val accounts = getApplication<FindItApplication>().graph.accounts
-    val account: StateFlow<Account?> = accounts.observeAccount()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val busy = MutableStateFlow(false)
+    // Resolve the saved Room session before deciding to display authentication.
+    val state: StateFlow<SessionState> = accounts.observeAccount()
+        .map { SessionState(loading = false, account = it) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SessionState())
 
     fun register(
         name: String,
@@ -24,22 +32,43 @@ class SessionViewModel(app: Application) : AndroidViewModel(app) {
         campus: String,
         onResult: (String?) -> Unit,
     ) {
+        if (busy.value) return
         viewModelScope.launch {
-            when (val result = accounts.register(name, email, password, confirm, campus)) {
+            busy.value = true
+            try { when (val result = accounts.register(name, email, password, confirm, campus)) {
                 is AuthResult.Created -> onResult(null)
                 is AuthResult.SignedIn -> onResult(null)
                 is AuthResult.Rejected -> onResult(result.message)
-            }
+            } } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { onResult("Account could not be saved. Please try again.") }
+            finally { busy.value = false }
         }
     }
 
     fun login(email: String, password: String, onResult: (String?) -> Unit) {
+        if (busy.value) return
         viewModelScope.launch {
-            when (val result = accounts.login(email, password)) {
+            busy.value = true
+            try { when (val result = accounts.login(email, password)) {
                 is AuthResult.SignedIn -> onResult(null)
                 is AuthResult.Rejected -> onResult(result.message)
                 AuthResult.Created -> onResult("Log in with the account you just created.")
-            }
+            } } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { onResult("Sign-in could not be completed. Please try again.") }
+            finally { busy.value = false }
+        }
+    }
+
+    fun resetPassword(email: String, onResult: (String) -> Unit) {
+        if (busy.value) return
+        viewModelScope.launch {
+            busy.value = true
+            try {
+                val message = accounts.resetPassword(email)
+                onResult(message ?: "Reset email requested. Check your inbox and spam folder.")
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { onResult("Recovery email could not be requested. Please try again.") }
+            finally { busy.value = false }
         }
     }
 
