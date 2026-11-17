@@ -12,7 +12,7 @@ A Kotlin Android college project for finding and returning campus belongings. Th
 
 Start with [the college demo guide](DEMO.md). [SETUP.md](SETUP.md) explains Android Studio, Firebase and Google Maps configuration. The project is a classroom demonstration; live Firebase and Google Maps require your own service configuration.
 
-This workspace has Firebase configuration, a live Maps key, deployed Firestore/Storage rules and three notification functions. A live service check passed account creation, campus setup, photo sharing, private messaging and both-user handover using temporary isolated accounts, which were removed afterward. Google dashboard entry and background push on two physical devices still need a manual check. No `.env` or paid AI API is needed.
+This workspace has Firebase configuration, a live Maps key, deployed Firestore/Storage rules and three notification functions. A live service check passed account creation, campus setup, photo sharing, private messaging and both-user handover using temporary isolated accounts, which were removed afterward. The campus dashboard was observed on the physical phone after deployment and on the emulator with its saved session. A dedicated Google session/restart check and background push on two physical devices remain. No `.env` or paid AI API is needed.
 
 ```sh
 ./gradlew assembleDebug testDebugUnitTest lintDebug

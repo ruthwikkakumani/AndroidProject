@@ -27,4 +27,6 @@ A separate live service check used two temporary, isolated email/password accoun
 
 Firestore and Storage rules, cross-service Storage permissions, and all three notification functions were deployed. Function listing confirmed their presence. The deployment CLI returned a cleanup-policy notice after successful function creation. Background FCM delivery has not yet been observed on two devices.
 
-Manual classroom flow: [DEMO.md](../DEMO.md). Remaining checks: retry Google dashboard entry after rule deployment, Firebase/push with two phones, physical camera/GPS, TalkBack and broader screen sizes.
+After deployment, the physical phone's signed-in campus dashboard and the emulator's saved-session dashboard were observed. USB disconnection prevented confirming the phone's active sign-in provider and testing a cold restart.
+
+Manual classroom flow: [DEMO.md](../DEMO.md). Remaining checks: dedicated Google session/restart verification, Firebase/push with two phones, physical camera/GPS, TalkBack and broader screen sizes.

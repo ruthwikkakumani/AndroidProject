@@ -34,7 +34,7 @@ Email/password remains available. Google sign-in uses Android Credential Manager
 
 5. Use a device/emulator with Google Play services and a Google account. Open Create account or Login and tap **Continue with Google**. A new Google user chooses their name and college before joining; an existing user opens their saved campus dashboard. OAuth tokens are not stored as Room passwords. Canceling the Google chooser leaves the current screen open.
 
-The Firebase JSON and Maps key are optional for the local demo. They are configuration identifiers supplied by your own projects; do not invent them. No `.env` file is used. This workspace already has the downloaded Firebase JSON, signing configuration and Maps key; real map tiles loaded on the emulator. The physical phone completed Google authentication but hit a profile permission error before rule deployment. Retry **Continue with Google** now that the rules are deployed, then complete the college step. Dashboard entry on that phone still needs to be observed.
+The Firebase JSON and Maps key are optional for the local demo. They are configuration identifiers supplied by your own projects; do not invent them. No `.env` file is used. This workspace already has the downloaded Firebase JSON, signing configuration and Maps key; real map tiles loaded on the emulator. The physical phone completed Google authentication but hit a profile permission error before rule deployment. That error is fixed, and the phone's signed-in campus dashboard was subsequently observed. A dedicated Google session/cold-restart check remains because the USB connection was intermittent.
 
 ## Background notifications
 
