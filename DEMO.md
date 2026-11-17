@@ -10,6 +10,7 @@ No Firebase or Maps key is needed for a demonstration on one phone/emulator. Ope
 6. Only after both checks, each account confirms the actual handover. The report moves to Reunited in Profile. The Found board supports the reverse workflow through **This is mine**.
 7. Show Scan using a clear photographed label or `demo/ocr-label.png` from this repository. Choose the image, review the recognized text, and use it in a lost report. On the emulator, drag the PNG onto the emulator to import it before opening the photo picker.
 8. Show Map and report location tagging. Without a Maps key the app shows a labelled pin preview and real GPS coordinates; with a key it uses Google Maps. Set a simulated position through emulator **Extended controls → Location**. A physical phone gives device GPS and camera capture.
+9. On Map, tap **Start trail**, walk with the map open, then **Pause trail**. Resume creates a separate segment, avoiding a false line across the paused period. The saved trail survives reopening. Tap a report pin to open its draggable card, then **Walking directions** to open Google Maps. Use the clear button only when you want to remove your own saved trail.
 
 Camera/OCR cannot read lettering that is absent from the emulator camera scene. Use the supplied image, a printed label, a webcam, or a physical phone. No paid AI API is required.
 

@@ -6,6 +6,7 @@
 - Google OAuth needs Firebase Google sign-in, a configured web client ID, and Google Play services. It has not been tested against a live configured project.
 - Campus membership is self-declared; email/password or Google authentication does not verify institutional membership. College suggestions are a bundled convenience list, not an exhaustive or verified directory.
 - Live Google Maps needs a restricted SDK key. The unconfigured map is explicitly labelled as a pin preview.
+- Walking trails record your own device only while the map is open. There is no background or other-student tracking. Up to 5,000 points are saved per account; fixes worse than 60 m accuracy are excluded. Walking directions open Google Maps externally; the app does not provide native turn-by-turn navigation.
 - GPS accuracy depends on hardware, permission and surroundings. Emulator coordinates are simulated. Physical-phone camera/GPS behavior remains to be checked.
 - OCR/image comparison gives clues, never ownership proof. Students must compare private details and inspect the physical item.
 - Automated checks used one Android 17 emulator. TalkBack, older devices and all tablet sizes have not been fully audited.

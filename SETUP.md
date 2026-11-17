@@ -4,7 +4,7 @@ Open this project folder in Android Studio, let Gradle sync, then select the `ap
 
 ## What works before service setup
 
-Accounts, reports, search, private conversations between accounts on the same installation, ownership checks, camera capture, gallery import, GPS tagging, and bundled on-device OCR/image labeling work locally. Data stays in Room and survives restarts. Signup includes 100 editable Indian college/campus suggestions. Android notifications can be enabled from Profile; replies also remain available in Messages. Students on **different phones** need the Firebase setup below. A live Google map needs the Maps key; GPS coordinates and accuracy work without it.
+Accounts, reports, search, private conversations between accounts on the same installation, ownership checks, camera capture, gallery import, GPS tagging, and bundled on-device OCR/image labeling work locally. Data stays in Room and survives restarts. Signup includes 100 editable Indian college/campus suggestions. Android notifications can be enabled from Profile; replies also remain available in Messages. Students on **different phones** need the Firebase setup below. A live Google map needs the Maps key; GPS coordinates, accuracy and private walking-trail recording work without it. Walking directions open Google Maps externally and do not need this app's SDK key. Trails remain on the device and record only while the map is open.
 
 ## Firebase: shared campus accounts, reports, photos, and messages
 

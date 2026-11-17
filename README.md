@@ -6,6 +6,7 @@ A Kotlin Android college project for finding and returning campus belongings. Th
 - Search separate Lost and Found boards. **Report** posts a lost item; the Found board has its own posting action.
 - **Found it** and **This is mine** open a private conversation with the exact reporter and create unread alerts.
 - Capture photos with either camera, choose gallery images, and tag measured GPS coordinates with accuracy.
+- Record a private walking trail with pause/resume and distance. Tap map pins for a draggable report card and walking directions.
 - Bundled ML Kit reads text in photos and compares image labels/readable text for ownership clues. Both students review evidence and confirm the actual handover.
 - Room stores accounts, reports, messages and return progress offline. Optional Firebase synchronizes accounts, reports, photos and conversations across phones.
 
