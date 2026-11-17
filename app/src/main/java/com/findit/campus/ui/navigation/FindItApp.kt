@@ -441,10 +441,16 @@ internal fun androidx.navigation.NavHostController.openCampusTab(target: String,
 @Composable
 internal fun CampusNavigationBar(route: String, unread: Int = 0, onTab: (String) -> Unit) {
     NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow, tonalElevation = 0.dp,
-        windowInsets = WindowInsets(0, 0, 0, 0), modifier = Modifier.height(80.dp)) {
+        windowInsets = WindowInsets(0, 0, 0, 0), modifier = Modifier.heightIn(min = 80.dp)) {
         tabs.forEach { tab ->
             NavigationBarItem(selected = route == tab.route || (tab.route == Routes.INBOX && route == Routes.ALERTS),
-                onClick = { onTab(tab.route) }, icon = { TabIcon(tab, route, unread) }, label = { Text(tab.label) })
+                onClick = { onTab(tab.route) }, icon = { TabIcon(tab, route, unread) }, label = { Text(tab.label, style = MaterialTheme.typography.labelMedium) },
+                colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant))
         }
     }
 }

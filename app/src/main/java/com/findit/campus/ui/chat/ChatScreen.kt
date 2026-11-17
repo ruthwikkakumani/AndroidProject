@@ -2,6 +2,8 @@ package com.findit.campus.ui.chat
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -90,7 +92,7 @@ fun ChatContent(state: ChatUiState, model: ChatActions, onBack: () -> Unit, modi
     var checkOpen by rememberSaveable { mutableStateOf(false) }
     var confirm by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(visibleMessages.lastOrNull()?.id) { if (visibleMessages.isNotEmpty()) listState.animateScrollToItem(visibleMessages.size) }
-    Scaffold(modifier, snackbarHost = { SnackbarHost(snackbar) }, topBar = { PageTopBar(state.personName, onBack, actions = {
+    Scaffold(modifier, snackbarHost = { SnackbarHost(snackbar) { FeedbackSnackbar(it) } }, topBar = { PageTopBar(state.personName, onBack, actions = {
         IconButton({ locationOpen = true }, enabled = state.thread != null) {
             Icon(Icons.Outlined.LocationOn, "Meeting location")
         }
@@ -98,15 +100,19 @@ fun ChatContent(state: ChatUiState, model: ChatActions, onBack: () -> Unit, modi
     }) }, bottomBar = {
         if (state.thread != null) Surface(shadowElevation = 3.dp) {
             Row(Modifier.imePadding().navigationBarsPadding().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton({ attachmentsOpen = true }, enabled = !state.busy) { Icon(Icons.Outlined.AddCircleOutline, "Message attachments") }
-                OutlinedTextField(state.draft, model.onDraft, Modifier.weight(1f), placeholder = { Text("Message privately") }, maxLines = 4, shape = MaterialTheme.shapes.large)
+                FilledTonalIconButton({ attachmentsOpen = true }, enabled = !state.busy) { Icon(Icons.Outlined.AddCircleOutline, "Message attachments") }
+                OutlinedTextField(state.draft, model.onDraft, Modifier.weight(1f), placeholder = { Text("Message privately") }, maxLines = 4, shape = MaterialTheme.shapes.large,
+                    colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent))
                 FilledIconButton(model.send, enabled = state.draft.isNotBlank() && !state.busy) { Icon(Icons.AutoMirrored.Filled.Send, "Send message") }
             }
         }
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             state.item?.let { report ->
-                Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+                Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f)),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                     Row(Modifier.clickable { checkOpen = true }.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         ItemPhoto(report.photoPath, report.title, report.category, MaterialTheme.colorScheme.tertiary, Modifier.size(48.dp))
                         Column(Modifier.weight(1f)) { Text(report.title, style = MaterialTheme.typography.titleSmall); Text("${report.zoneName} · Private return conversation", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -183,9 +189,11 @@ fun ChatContent(state: ChatUiState, model: ChatActions, onBack: () -> Unit, modi
 @Composable
 private fun MessageBubble(message: MessageEntity, mine: Boolean, delivery: String, onLocation: () -> Unit, now: Long, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth(), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
-        Surface(Modifier.widthIn(max = 320.dp).animateContentSize(), shape = MaterialTheme.shapes.medium,
+        Surface(Modifier.widthIn(max = 320.dp).animateContentSize(),
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomEnd = if (mine) 6.dp else 20.dp, bottomStart = if (mine) 20.dp else 6.dp),
+            border = if (mine) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f)),
             color = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 message.photoPath?.let { ItemPhoto(it, "shared evidence", "Other", MaterialTheme.colorScheme.tertiary, Modifier.fillMaxWidth().height(170.dp)) }
                 val pin = MeetingPin.decode(message.body)
                 val contact = PrivateContact.decode(message.body)
@@ -209,13 +217,7 @@ private fun MessageBubble(message: MessageEntity, mine: Boolean, delivery: Strin
 
 @Composable
 private fun AttachmentAction(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Surface(onClick = onClick, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
-            Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.titleSmall); Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            Icon(Icons.Outlined.ChevronRight, null)
-        }
-    }
+    CampusAction(icon, title, subtitle, onClick)
 }
 
 @Composable
@@ -280,7 +282,8 @@ fun InboxContent(conversations: List<ConversationSummary>, notifications: List<N
     onOpen: (Long) -> Unit, onMarkRead: () -> Unit, modifier: Modifier = Modifier, onOpenReport: (Long) -> Unit = {}, startAlerts: Boolean = false) {
     var alerts by rememberSaveable { mutableStateOf(startAlerts) }
     val feedback = LocalFeedback.current
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    ReadingPane(modifier) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Brand() }
         item { IllustratedHeading("Messages &\nhappy returns", "Keep every conversation and item check in one place.", R.drawable.art_messages) }
         item {
@@ -293,9 +296,16 @@ fun InboxContent(conversations: List<ConversationSummary>, notifications: List<N
             if (notifications.isEmpty()) item { EmptyBoard("All caught up", "Matches, replies, and return requests will appear here.") }
             else item { TextButton({ onMarkRead(); feedback("Alerts marked as read") }, Modifier.fillMaxWidth()) { Text("Mark all as read") } }
             items(notifications, key = { it.id }) { alert ->
-                Surface(onClick = { if (alert.threadId != null) onOpen(alert.threadId) else alert.itemId?.let(onOpenReport) }, shape = MaterialTheme.shapes.medium, color = if (alert.read) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.primaryContainer) {
+                Surface(onClick = { if (alert.threadId != null) onOpen(alert.threadId) else alert.itemId?.let(onOpenReport) }, modifier = Modifier.animateItem(), shape = MaterialTheme.shapes.medium,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f)), color = if (alert.read) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.primaryContainer) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(alert.title, style = MaterialTheme.typography.titleSmall); Text(alert.body, style = MaterialTheme.typography.bodyMedium)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Icon(if (alert.threadId != null) Icons.Outlined.ChatBubbleOutline else Icons.Outlined.NotificationsActive, null,
+                                Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                            Text(alert.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                            if (!alert.read) Badge()
+                        }
+                        Text(alert.body, style = MaterialTheme.typography.bodyMedium)
                         Text(formatWhen(alert.createdAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -303,11 +313,15 @@ fun InboxContent(conversations: List<ConversationSummary>, notifications: List<N
         } else {
             if (conversations.isEmpty()) item { EmptyBoard("Every reunion starts with hello", "Tap Found it on a lost report, or This is mine on a found report, to start a private conversation.") }
             items(conversations, key = { it.id }) { chat ->
-                Surface(onClick = { onOpen(chat.id) }, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                Surface(onClick = { onOpen(chat.id) }, modifier = Modifier.animateItem(), shape = MaterialTheme.shapes.large,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f)), color = MaterialTheme.colorScheme.surfaceContainerLow) {
                     Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         ItemPhoto(chat.photoPath, chat.title, "Other", MaterialTheme.colorScheme.tertiary, Modifier.size(56.dp))
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(chat.personName, style = MaterialTheme.typography.titleSmall)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(chat.personName, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                                Text(formatWhen(chat.updatedAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                             Text(chat.title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                             Text(chat.preview?.let(::chatPreview) ?: "Start checking the item together", style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
@@ -316,5 +330,6 @@ fun InboxContent(conversations: List<ConversationSummary>, notifications: List<N
                 }
             }
         }
+    }
     }
 }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -43,14 +44,17 @@ fun PostScreen(state: PostUiState, onType: (ItemType) -> Unit, onTitle: (String)
         bottomBar = {
             Surface(shadowElevation = 4.dp) {
                 Column(Modifier.navigationBarsPadding().imePadding().padding(horizontal = 20.dp, vertical = 12.dp)) {
-                    Button({ onSave(false) }, Modifier.fillMaxWidth().height(52.dp), enabled = !state.saving && !state.reading) { Text(if (state.saving) "Posting…" else if (lost) "Post lost report" else "Post found item") }
+                    Button({ onSave(false) }, Modifier.fillMaxWidth().heightIn(min = 52.dp), enabled = !state.saving && !state.reading) { Text(if (state.saving) "Posting…" else if (lost) "Post lost report" else "Post found item") }
                 }
             }
         }) { padding ->
-        LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        ReadingPane(Modifier.padding(padding)) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item { IllustratedHeading(if (lost) "Let's bring\nit back." else "Someone's\nmissing this.", if (lost) "A clear photo and a few details make all the difference." else "Help its owner recognize it. Keep unique details private.", R.drawable.art_report) }
+            item { WorkflowSteps(listOf("Photo", "Details", "Location"),
+                if (form.zoneName.isNotBlank()) 2 else if (form.title.isNotBlank()) 1 else 0) }
             item { FormCard {
-                Text("Add a photo", style = MaterialTheme.typography.titleMedium)
+                SectionHeading(Icons.Outlined.AddAPhoto, "Add a photo", "01")
                 if (form.photoPath != null) {
                     ItemPhoto(form.photoPath, form.title.ifBlank { "Item" }, form.category, MaterialTheme.colorScheme.tertiary, Modifier.fillMaxWidth().height(180.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -66,16 +70,16 @@ fun PostScreen(state: PostUiState, onType: (ItemType) -> Unit, onTitle: (String)
                 if (form.scannedText.isNotBlank()) Notice("Recognized text: ${form.scannedText}")
             } }
             item { FormCard {
-                Text("The item", style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(form.title, onTitle, Modifier.fillMaxWidth(), label = { Text("Item name") }, placeholder = { Text("e.g. Navy bottle with a sticker") }, singleLine = true, supportingText = { Text("${form.title.length}/60") })
+                SectionHeading(Icons.Outlined.Inventory2, "The item", "02")
+                OutlinedTextField(form.title, onTitle, Modifier.fillMaxWidth(), label = { Text("Item name") }, leadingIcon = { Icon(Icons.AutoMirrored.Outlined.Label, null) }, shape = MaterialTheme.shapes.small, placeholder = { Text("e.g. Navy bottle with a sticker") }, singleLine = true, supportingText = { Text("${form.title.length}/60") })
                 OutlinedButton({ categoryOpen = true }, Modifier.fillMaxWidth()) {
                     Icon(categoryIcon(form.category), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(form.category, Modifier.weight(1f)); Icon(Icons.Outlined.ExpandMore, null)
                 }
-                OutlinedTextField(form.description, onDescription, Modifier.fillMaxWidth(), label = { Text("Details people can recognize") }, minLines = 3, supportingText = { Text("${form.description.length}/400 · Don't include private identifiers") })
+                OutlinedTextField(form.description, onDescription, Modifier.fillMaxWidth(), label = { Text("Details people can recognize") }, shape = MaterialTheme.shapes.small, minLines = 3, supportingText = { Text("${form.description.length}/400 · Don't include private identifiers") })
             } }
             item { FormCard {
-                Text(if (lost) "Where & when was it lost?" else "Where & when did you find it?", style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(form.zoneName, onPlaceName, Modifier.fillMaxWidth(), label = { Text("Place on campus") }, placeholder = { Text("Building, library, or campus area") }, singleLine = true)
+                SectionHeading(Icons.Outlined.Place, if (lost) "Where & when was it lost?" else "Where & when did you find it?", "03")
+                OutlinedTextField(form.zoneName, onPlaceName, Modifier.fillMaxWidth(), label = { Text("Place on campus") }, leadingIcon = { Icon(Icons.Outlined.Place, null) }, shape = MaterialTheme.shapes.small, placeholder = { Text("Building, library, or campus area") }, singleLine = true)
                 FilledTonalButton({ if (granted) onUseLocation() else { pinRequested = true; askLocation() } }, Modifier.fillMaxWidth(), enabled = !state.locating) {
                     Icon(Icons.Outlined.MyLocation, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(if (state.locating) "Getting a fresh position…" else if (form.latitude != null) "Refresh my location pin" else "Add my current location")
                 }
@@ -88,11 +92,12 @@ fun PostScreen(state: PostUiState, onType: (ItemType) -> Unit, onTitle: (String)
                 OutlinedButton({ dateOpen = true }, Modifier.fillMaxWidth()) { Icon(Icons.Outlined.CalendarToday, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(formatFull(form.whenMillis)) }
             } }
             item { FormCard {
-                Text("Keep one detail private", style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(form.privateDetail, onPrivateDetail, Modifier.fillMaxWidth(), label = { Text("Unique detail (optional)") }, supportingText = { Text("A mark or identifier only you know. Hidden from the board.") })
+                SectionHeading(Icons.Outlined.VerifiedUser, "Keep one detail private")
+                OutlinedTextField(form.privateDetail, onPrivateDetail, Modifier.fillMaxWidth(), label = { Text("Unique detail (optional)") }, shape = MaterialTheme.shapes.small, supportingText = { Text("A mark or identifier only you know. Hidden from the board.") })
                 TrustNote("Students contact you through private messages. Both of you check evidence before confirming the return.")
             } }
         }
+    }
     }
     (state.message ?: photoError)?.let { message -> AlertDialog(onDismissRequest = { onConsumeMessage(); photoError = null }, title = { Text("Your report") }, text = { Text(message) },
         confirmButton = { TextButton({ onConsumeMessage(); photoError = null }) { Text("Got it") } }) }

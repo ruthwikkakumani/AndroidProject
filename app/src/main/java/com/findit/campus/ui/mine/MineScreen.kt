@@ -8,7 +8,6 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,7 +22,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -47,33 +45,27 @@ fun MineScreen(state: MineUiState, onOpen: (Long) -> Unit, accountName: String =
     val context = LocalContext.current
     val feedback = LocalFeedback.current
     val visible = state.items.filter { (it.status == ItemStatus.REUNITED) == returned }
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp, 16.dp, 20.dp, 100.dp),
+    ReadingPane(modifier) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp, 16.dp, 20.dp, 100.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Your space", style = MaterialTheme.typography.headlineMedium)
-                Text("A little help brings things home.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+        item { ScreenHeader("Your space", "Your campus. Your conversations. Your good deeds.", eyebrow = "PROFILE") {
             FilledTonalIconButton({ settings = true }) { Icon(Icons.Outlined.Settings, "Account settings") }
         } }
         item {
-            Surface(shape = MaterialTheme.shapes.large) {
-                Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.primaryContainer))).padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            FeaturePanel {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         Avatar(accountName, Modifier.size(58.dp))
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(accountName.ifBlank { "Campus student" }, style = MaterialTheme.typography.titleLarge)
-                            Text(campusName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(campusName, style = MaterialTheme.typography.bodyMedium, color = LocalContentColor.current.copy(alpha = .78f))
                         }
                         Illustration(R.drawable.art_profile, Modifier.size(66.dp))
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = .15f))
+                    HorizontalDivider(color = LocalContentColor.current.copy(alpha = .15f))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         ProfileCount(state.items.count { it.status != ItemStatus.REUNITED }, "Active reports", !returned, { returned = false }, Modifier.weight(1f))
                         ProfileCount(state.items.count { it.status == ItemStatus.REUNITED }, "Reunited", returned, { returned = true }, Modifier.weight(1f))
                     }
-                }
             }
         }
         item { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -104,6 +96,7 @@ fun MineScreen(state: MineUiState, onOpen: (Long) -> Unit, accountName: String =
         item { OutlinedButton({ signOut = true }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("logout")) {
             Icon(Icons.AutoMirrored.Outlined.Logout, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Log out")
         } }
+    }
     }
     if (signOut) AlertDialog(onDismissRequest = { signOut = false }, title = { Text("Log out of FindIt?") },
         text = { Text("Your reports and conversations are saved. Log in again to continue.") },
@@ -162,11 +155,11 @@ fun MineScreen(state: MineUiState, onOpen: (Long) -> Unit, accountName: String =
 }
 
 @Composable private fun ProfileCount(count: Int, label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
-    val color by animateColorAsState(if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surface.copy(alpha = .45f), label = "Report selection")
+    val color by animateColorAsState(if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceContainerHigh, label = "Report selection")
     Surface(onClick = onClick, modifier = modifier, shape = MaterialTheme.shapes.medium, color = color) {
         Column(Modifier.padding(vertical = 12.dp).animateContentSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(count.toString(), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
-            Text(label, style = MaterialTheme.typography.labelMedium)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(horizontal = 8.dp))
         }
     }
 }

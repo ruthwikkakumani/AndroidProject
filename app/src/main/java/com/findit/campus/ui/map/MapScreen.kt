@@ -62,6 +62,7 @@ fun MapScreen(state: MapUiState, onFocus: (MapFocus) -> Unit, onType: (ItemType?
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (!compact) Text("CAMPUS EXPLORER", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     Text("Around your campus", style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
                         modifier = Modifier.semantics { heading() })
                     if (!compact) Text("Find the pin. Retrace your steps.", style = MaterialTheme.typography.bodyMedium,
@@ -169,7 +170,9 @@ private fun TrailControls(trail: TrailUiState, coordinates: String?, onToggle: (
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Icon(Icons.Outlined.Route, null, tint = MaterialTheme.colorScheme.primary)
+                Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.primaryContainer) {
+                    Icon(Icons.Outlined.Route, null, Modifier.padding(10.dp).size(22.dp), tint = MaterialTheme.colorScheme.primary)
+                }
                 Column(Modifier.weight(1f)) {
                     Text("Your walking trail", style = MaterialTheme.typography.titleMedium)
                     Text(if (trail.recording) "Recording · ${formatTrailDistance(trail.distanceMeters)}" else if (trail.points.isEmpty()) "Retrace where you searched"

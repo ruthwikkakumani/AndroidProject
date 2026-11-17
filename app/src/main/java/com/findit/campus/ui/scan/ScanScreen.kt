@@ -23,8 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
@@ -46,58 +46,53 @@ fun ScanScreen(state: ScanUiState, onText: (String) -> Unit, onPhoto: (Bitmap) -
             contentPadding = PaddingValues(20.dp, 16.dp, 20.dp, 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("PHOTO ASSISTANT", style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                        Text("A photo. A little closer.", style = MaterialTheme.typography.headlineMedium,
-                            modifier = Modifier.semantics { heading() })
-                        Text("Find clues. Search your campus.", style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    IconButton({ showHelp = true }) { Icon(Icons.AutoMirrored.Outlined.HelpOutline, "How the scanner works") }
+                ScreenHeader("A photo. A little closer.", "Find clues. Search your campus.", eyebrow = "PHOTO ASSISTANT") {
+                    FilledTonalIconButton({ showHelp = true }) { Icon(Icons.AutoMirrored.Outlined.HelpOutline, "How the scanner works") }
                 }
             }
+            item { WorkflowSteps(listOf("Photo", "Clues", "Search"),
+                if (state.text.isNotBlank()) 2 else if (state.photo != null && !state.busy) 1 else 0) }
             item {
-                FormCard {
+                FeaturePanel {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.primaryContainer) {
-                            Icon(Icons.Outlined.CenterFocusStrong, null, Modifier.padding(10.dp).size(24.dp),
-                                tint = MaterialTheme.colorScheme.primary)
-                        }
+                        Icon(Icons.Outlined.CenterFocusStrong, null, Modifier.size(24.dp))
                         Column(Modifier.weight(1f)) {
                             Text("AI photo scanner", style = MaterialTheme.typography.titleMedium)
                             AnimatedContent(state.busy, label = "scan_status") { busy ->
                                 Text(if (busy) "Reading your photo…" else "On-device · works offline",
-                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    style = MaterialTheme.typography.bodySmall, color = LocalContentColor.current.copy(alpha = .78f))
                             }
                         }
-                        Icon(Icons.Outlined.OfflineBolt, null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Outlined.OfflineBolt, null)
                     }
                     if (state.photo != null) ScanPhoto(state.photo, state.busy)
-                    else Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.secondaryContainer) {
-                        Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            Icon(Icons.Outlined.AddAPhoto, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Let the item fill the frame", style = MaterialTheme.typography.titleSmall)
-                                Text("Use a close-up in good light. Include a label or a unique mark.",
-                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                    else Box(Modifier.fillMaxWidth().heightIn(min = 160.dp)) {
+                        Viewfinder(Modifier.matchParentSize())
+                        Column(Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Icon(Icons.Outlined.AddAPhoto, null, Modifier.size(36.dp))
+                            Text("Let the item fill the frame", style = MaterialTheme.typography.titleSmall)
+                            Text("One item. Good light. A label or a unique mark.", style = MaterialTheme.typography.bodySmall,
+                                color = LocalContentColor.current.copy(alpha = .78f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         }
                     }
                     PhotoActions(onPhoto = { photoError = null; onPhoto(it) }, onError = { photoError = it }, enabled = !state.busy,
-                        cameraLabel = if (state.photo == null) "Take photo" else "Retake photo")
+                        cameraLabel = if (state.photo == null) "Take photo" else "Retake photo", onDarkSurface = true)
                     AnimatedVisibility(state.busy, enter = fadeIn(), exit = fadeOut()) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            LinearProgressIndicator(Modifier.fillMaxWidth())
+                            LinearProgressIndicator(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.inversePrimary,
+                                trackColor = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = .15f))
                             Text("Recognizing objects and reading visible writing…", style = MaterialTheme.typography.bodySmall)
                         }
                     }
+                }
+            }
+            if (!state.busy && (state.objects.isNotEmpty() || state.scene.isNotEmpty())) item {
+                FormCard {
                     AnimatedVisibility(!state.busy && state.objects.isNotEmpty(), enter = fadeIn() + expandVertically(),
                         exit = fadeOut() + shrinkVertically()) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ScanSectionLabel(Icons.Outlined.ImageSearch, "Item clues")
+                            SectionHeading(Icons.Outlined.ImageSearch, "Item clues")
                             Text("Tap a clue to search · model confidence", style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -133,7 +128,7 @@ fun ScanScreen(state: ScanUiState, onText: (String) -> Unit, onPhoto: (Bitmap) -
             } }
             item {
                 FormCard {
-                    ScanSectionLabel(Icons.AutoMirrored.Outlined.ManageSearch, "Search clues")
+                    SectionHeading(Icons.AutoMirrored.Outlined.ManageSearch, "Search clues")
                     OutlinedTextField(state.text, { photoError = null; onText(it) },
                         Modifier.fillMaxWidth().testTag("scan_query"), label = { Text("Item name or writing") },
                         placeholder = { Text("e.g. blue bottle, notebook name") }, minLines = 2, maxLines = 5,
@@ -192,24 +187,18 @@ fun ScanScreen(state: ScanUiState, onText: (String) -> Unit, onPhoto: (Bitmap) -
 }
 
 @Composable
-private fun ScanSectionLabel(icon: ImageVector, title: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-        Text(title, style = MaterialTheme.typography.titleMedium)
-    }
-}
-
-@Composable
 private fun ScanPhoto(photo: Bitmap, busy: Boolean) {
     val image = remember(photo) { photo.asImageBitmap() }
-    Box(Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(18.dp))
+    Box(Modifier.fillMaxWidth().height(210.dp).clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.surfaceContainer).testTag("scan_photo")) {
         Image(image, "Photo being analyzed", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
         Surface(Modifier.align(Alignment.TopStart).padding(10.dp), shape = MaterialTheme.shapes.small,
-            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = .94f)) {
+            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = .94f),
+            contentColor = MaterialTheme.colorScheme.onSurface) {
             Text("YOUR PHOTO", Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                 style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
         }
+        Viewfinder(Modifier.fillMaxSize().padding(8.dp))
         if (busy) {
             val transition = rememberInfiniteTransition(label = "photo_scan")
             val progress by transition.animateFloat(0f, 1f,
@@ -231,6 +220,23 @@ private fun ScanHelpStep(icon: ImageVector, title: String, body: String) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** A quiet camera frame. Motion is reserved for an actual scan in progress. */
+@Composable
+private fun Viewfinder(modifier: Modifier) {
+    val color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = .55f)
+    Canvas(modifier) {
+        val inset = 8.dp.toPx()
+        val length = 22.dp.toPx()
+        val stroke = 2.dp.toPx()
+        for (right in listOf(false, true)) for (bottom in listOf(false, true)) {
+            val x = if (right) size.width - inset else inset
+            val y = if (bottom) size.height - inset else inset
+            drawLine(color, Offset(x, y), Offset(x + if (right) -length else length, y), stroke)
+            drawLine(color, Offset(x, y), Offset(x, y + if (bottom) -length else length), stroke)
         }
     }
 }

@@ -75,7 +75,14 @@ fun DiscoverScreen(
             }
         } }
         item(span = { GridItemSpan(maxLineSpan) }) {
-            IllustratedHeading("Lost something\non campus?", "A little help can bring it home. Find your things, or make someone's day.", R.drawable.cutout_9_392e3d4c8b06)
+            IllustratedHeading("Lost something\non campus?", "A little help can bring it home. Find your things, or make someone's day.", R.drawable.cutout_9_392e3d4c8b06, action = {
+                FilledTonalButton(onScan, Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.inverseOnSurface,
+                        contentColor = MaterialTheme.colorScheme.inverseSurface)) {
+                    Icon(Icons.Outlined.DocumentScanner, null, Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp)); Text("Scan an item")
+                }
+            })
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
             CampusAction(Icons.Outlined.AutoAwesome, "Find it faster", "AI photo clues, maps & private meet-ups", { toolsOpen = true })
@@ -90,7 +97,7 @@ fun DiscoverScreen(
                     IconButton(onClick = { filtersOpen = true }) { Icon(Icons.Outlined.Tune, "Filters") }
                 } },
                 singleLine = true, shape = CircleShape,
-                colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .5f),
+                colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search))
         }

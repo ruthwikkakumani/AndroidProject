@@ -22,30 +22,38 @@ import com.findit.campus.ui.components.*
 
 @Composable
 fun WelcomeScreen(onCreate: () -> Unit, onLogin: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxSize().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(24.dp),
+    ReadingPane(modifier.fillMaxSize().navigationBarsPadding()) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)) {
         Brand()
-        Spacer(Modifier.height(16.dp))
-        Illustration(R.drawable.art_welcome, Modifier.fillMaxWidth().height(250.dp))
-        Text("Your things.\nBack where they belong.", style = MaterialTheme.typography.headlineLarge)
-        Text("Your campus lost and found, made simple. Report an item, connect with a student, and check it together before returning it.",
-            style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        FeaturePanel {
+            Illustration(R.drawable.art_welcome, Modifier.fillMaxWidth().height(200.dp))
+            Text("Your things.\nBack where they belong.", style = MaterialTheme.typography.headlineLarge)
+            Text("Lost on campus? A little help can bring it home.", style = MaterialTheme.typography.bodyLarge,
+                color = LocalContentColor.current.copy(alpha = .78f))
+        }
+        WorkflowSteps(listOf("Report", "Connect", "Reunite"), 0)
+        Text("Share an item, connect with a student, and check it together before returning it.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(4.dp))
         Button(onCreate, Modifier.fillMaxWidth().heightIn(min = 54.dp).testTag("welcome_create")) { Text("Create account") }
         OutlinedButton(onLogin, Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("welcome_login")) { Text("I already have an account") }
         TrustNote("Private conversations. Thoughtful checks. Happier reunions.")
+    }
     }
 }
 
 @Composable
 private fun AccountLayout(title: String, body: String, onBack: () -> Unit, modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
     Scaffold(modifier, topBar = { PageTopBar("FindIt Campus", onBack) }) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),
+        ReadingPane(Modifier.padding(padding).fillMaxSize().imePadding()) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)) {
             IllustratedHeading(title, body, R.drawable.art_welcome)
             FormCard(content = content)
             TrustNote("Use the same campus name as your classmates to share the same board.")
             Spacer(Modifier.height(16.dp))
+        }
         }
     }
 }
@@ -55,6 +63,7 @@ private fun PasswordInput(value: String, onChange: (String) -> Unit, label: Stri
     var visible by rememberSaveable { mutableStateOf(false) }
     OutlinedTextField(value, onChange, Modifier.fillMaxWidth().testTag(tag), label = { Text(label) }, singleLine = true,
         shape = MaterialTheme.shapes.small, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        leadingIcon = { Icon(Icons.Outlined.Lock, null) },
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         trailingIcon = { IconButton(onClick = { visible = !visible }) {
             Icon(if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (visible) "Hide password" else "Show password")
@@ -70,8 +79,8 @@ fun RegisterScreen(onBack: () -> Unit, onSubmit: (String, String, String, String
     AccountLayout("Make yourself\nat home.", "Join the students bringing things back together.", onBack, modifier) {
         Text("Create account", style = MaterialTheme.typography.titleLarge)
         onGoogleToken?.let { GoogleSignInButton(!busy, it, onGoogleError); HorizontalDivider(); Text("Or use your email", style = MaterialTheme.typography.labelLarge) }
-        OutlinedTextField(name, { name = it.take(80) }, Modifier.fillMaxWidth().testTag("register_name"), label = { Text("Full name") }, singleLine = true, shape = MaterialTheme.shapes.small)
-        OutlinedTextField(email, { email = it.take(254) }, Modifier.fillMaxWidth().testTag("register_email"), label = { Text("Email address") }, singleLine = true, shape = MaterialTheme.shapes.small, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
+        OutlinedTextField(name, { name = it.take(80) }, Modifier.fillMaxWidth().testTag("register_name"), label = { Text("Full name") }, leadingIcon = { Icon(Icons.Outlined.PersonOutline, null) }, singleLine = true, shape = MaterialTheme.shapes.small)
+        OutlinedTextField(email, { email = it.take(254) }, Modifier.fillMaxWidth().testTag("register_email"), label = { Text("Email address") }, leadingIcon = { Icon(Icons.Outlined.AlternateEmail, null) }, singleLine = true, shape = MaterialTheme.shapes.small, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
         PasswordInput(password, { password = it }, "Password", "register_password")
         Text("At least 8 characters", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         PasswordInput(confirm, { confirm = it }, "Confirm password", "register_confirm")
@@ -92,7 +101,7 @@ fun LoginScreen(onBack: () -> Unit, onSubmit: (String, String) -> Unit, onCreate
         Text("Log in", style = MaterialTheme.typography.titleLarge)
         onGoogleToken?.let { GoogleSignInButton(!busy, it, onGoogleError); HorizontalDivider(); Text("Or use your email", style = MaterialTheme.typography.labelLarge) }
         notice?.let { Notice(it) }
-        OutlinedTextField(email, { email = it.take(254) }, Modifier.fillMaxWidth().testTag("login_email"), label = { Text("Email address") }, singleLine = true,
+        OutlinedTextField(email, { email = it.take(254) }, Modifier.fillMaxWidth().testTag("login_email"), label = { Text("Email address") }, leadingIcon = { Icon(Icons.Outlined.AlternateEmail, null) }, singleLine = true,
             shape = MaterialTheme.shapes.small, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
         PasswordInput(password, { password = it }, "Password", "login_password")
         TextButton(onForgot, Modifier.align(Alignment.End).testTag("login_forgot")) { Text("Forgot password?") }
@@ -108,7 +117,7 @@ fun ForgotPasswordScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val busy by model.busy.collectAsStateWithLifecycle()
     var email by rememberSaveable { mutableStateOf("") }; var notice by rememberSaveable { mutableStateOf<String?>(null) }
     AccountLayout("Let's get\nyou back in.", "Enter your account email to request a password reset.", onBack, modifier) {
-        OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("Email address") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
+        OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("Email address") }, leadingIcon = { Icon(Icons.Outlined.AlternateEmail, null) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
         notice?.let { Notice(it) }
         Button({ model.resetPassword(email) { notice = it } }, Modifier.fillMaxWidth().heightIn(min = 52.dp), enabled = !busy && email.isNotBlank()) { Text(if (busy) "Sending…" else "Send reset email") }
     }
@@ -123,7 +132,7 @@ fun GoogleCampusScreen(draft: com.findit.campus.data.GoogleProfileDraft, busy: B
         Text("Your campus profile", style = MaterialTheme.typography.titleLarge)
         Text(draft.email, style = MaterialTheme.typography.bodyMedium)
         OutlinedTextField(name, { name = it.take(80) }, Modifier.fillMaxWidth(),
-            label = { Text("Full name") }, singleLine = true, shape = MaterialTheme.shapes.small)
+            label = { Text("Full name") }, leadingIcon = { Icon(Icons.Outlined.PersonOutline, null) }, singleLine = true, shape = MaterialTheme.shapes.small)
         CampusField(campus, { campus = it })
         error?.let { Notice(it, error = true) }
         Button({ onSubmit(name, campus) }, Modifier.fillMaxWidth().heightIn(min = 52.dp), enabled = !busy) {

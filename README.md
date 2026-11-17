@@ -1,6 +1,6 @@
 # FindIt Campus
 
-A Kotlin Android college project for finding and returning campus belongings. The app uses an ivory, navy and emerald interface with original illustrations, animated navigation, a branded launch screen, floating navigation and draggable return-check sheets.
+A Kotlin Android college project for finding and returning campus belongings. The app uses an ivory, dark teal and emerald interface with original illustrations, animated navigation, a branded launch screen, floating navigation and draggable return-check sheets. Sign-in, Home, reports, item details, maps, conversations, Scan and Profile share responsive controls, readable typography and consistent cards.
 
 - Create an account, then log in. Your saved session opens the dashboard on later launches until you log out.
 - Search separate Lost and Found boards. **Report** posts a lost item; the Found board has its own posting action.
@@ -12,7 +12,9 @@ A Kotlin Android college project for finding and returning campus belongings. Th
 
 Start with [the college demo guide](DEMO.md). [SETUP.md](SETUP.md) explains Android Studio, Firebase and Google Maps configuration. The project is a classroom demonstration; live Firebase and Google Maps require your own service configuration.
 
-This workspace has Firebase configuration, a live Maps key, deployed Firestore/Storage rules and three notification functions. A live service check passed account creation, campus setup, photo sharing, private messaging and both-user handover using temporary isolated accounts, which were removed afterward. The campus dashboard was observed on the physical phone after deployment and on the emulator with its saved session. A dedicated Google session/restart check and background push on two physical devices remain. No `.env` or paid AI API is needed.
+Local Firebase configuration and Maps keys are intentionally excluded from Git. Follow [SETUP.md](SETUP.md) to add `app/google-services.json` and the Maps key in `local.properties`, enable authentication providers, and deploy the database rules and notification functions for your Firebase project. No `.env` or paid AI API is needed; bundled ML Kit runs on the device.
+
+The latest design checks passed 32 unit tests and 15 unique emulator UI tests, including Home navigation, Profile controls, scanner interactions, reports and enlarged-text layouts. Lint reported no errors and 41 warnings. A previous live service check passed account creation, campus setup, photo sharing, private messaging and both-user handover with isolated temporary accounts. Google session/restart and background push on two physical devices still need dedicated checks.
 
 ```sh
 ./gradlew assembleDebug testDebugUnitTest lintDebug
