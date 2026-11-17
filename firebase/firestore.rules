@@ -60,7 +60,10 @@ service cloud.firestore {
       }
     }
     match /threads/{threadId} {
-      allow read: if participant(resource.data);
+      // The offline uploader checks whether a thread exists before creating it.
+      // Missing documents have no participants yet; existing conversations remain private.
+      allow get: if signedIn() && (!exists(/databases/$(database)/documents/threads/$(threadId)) || participant(resource.data));
+      allow list: if participant(resource.data);
       allow create: if signedIn() && request.resource.data.guestUid == request.auth.uid
         && request.resource.data.guestId == profile().localId
         && threadId == string(request.resource.data.id)
