@@ -109,7 +109,7 @@ class ChatViewModel(app: Application, private val savedStateHandle: SavedStateHa
                         require(graph.location.hasPermission()) { "Location permission was removed." }
                         if (MeetingPin(next.latitude, next.longitude, next.accuracyMeters, next.capturedAtMillis).recent()) {
                             lastPin = MeetingPin(next.latitude, next.longitude, next.accuracyMeters, next.capturedAtMillis, true)
-                            graph.chat.send(id, current.viewerId, lastPin!!.encode())
+                            graph.chat.send(id, current.viewerId, lastPin.encode())
                         }
                     }
                 }
